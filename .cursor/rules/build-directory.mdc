@@ -1,0 +1,13 @@
+---
+description: CMake build directory is always _build (never build)
+alwaysApply: true
+---
+
+# Build directory (mandatory)
+
+- **Single build directory:** `_build` (with underscore). Do **not** use `build`.
+- Configure: `cmake -S . -B _build ...`
+- Build: `cmake --build _build ...`
+- Run: `_build\bin\Release\ui_sandbox.exe` or `_build\bin\Debug\ui_sandbox.exe`
+
+If you suggest or run CMake/ctest commands, use `_build` only.

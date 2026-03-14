@@ -1,0 +1,3 @@
+include LICENSE
+include README.rst
+recursive-include sinusoidal_sphinx_theme/sinusoidal_sphinx_theme *
