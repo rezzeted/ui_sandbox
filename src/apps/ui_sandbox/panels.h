@@ -23,6 +23,8 @@ enum class WidgetType {
     ShimmerText, GradientBorder, GlowGradientBorder,
     SkeuomorphCard,
     SkeuomorphSlider,
+    SkeuoButton, SkeuoToggle, SkeuoCheckbox,
+    SkeuoRadio, SkeuoInput, SkeuoProgress,
 };
 
 static WidgetType g_selected_widget = WidgetType::None;
@@ -744,56 +746,635 @@ static void DrawSkeuomorphSliderImpl(ImDrawList* dl, ImVec2 pos,
     }
 }
 
-static void DrawSkeuomorphTab(float dpi_scale) {
-    ImDrawList* dl = ImGui::GetWindowDrawList();
+// -------------------------------------------------------------------
+// Skeuomorphic Button
+// -------------------------------------------------------------------
+
+static void DrawSkeuoButtonImpl(ImDrawList* dl, ImVec2 pos,
+                                 float w, float h, const char* label,
+                                 bool* pressed, float zm) {
+    ImVec2 p0 = pos, p1(pos.x + w, pos.y + h);
+    float rnd = 8.0f * zm;
+    bool active = *pressed;
+
     ImGuiIO& io = ImGui::GetIO();
+    ImVec2 mp = io.MousePos;
+    bool hovered = mp.x >= p0.x && mp.x <= p1.x &&
+                   mp.y >= p0.y && mp.y <= p1.y;
+
+    if (hovered && ImGui::IsMouseClicked(0))
+        *pressed = !(*pressed);
+
+    active = *pressed;
+
+    if (!active) {
+        // Raised outer shadows
+        {
+            constexpr int passes = 8;
+            constexpr float spread = 5.0f;
+            float sdx = 2.0f * zm, sdy = 2.0f * zm;
+            for (int i = passes; i >= 0; --i) {
+                float f = (float)i / (float)passes;
+                float ex = spread * f * zm;
+                int a = (int)(12.0f * (1.0f - f) * (1.0f - f));
+                dl->AddRectFilled(ImVec2(p0.x + sdx - ex, p0.y + sdy - ex),
+                                  ImVec2(p1.x + sdx + ex, p1.y + sdy + ex),
+                                  IM_COL32(0, 0, 0, a), rnd + ex);
+            }
+        }
+        {
+            constexpr int passes = 8;
+            constexpr float spread = 5.0f;
+            float lx = -1.5f * zm, ly = -1.5f * zm;
+            for (int i = passes; i >= 0; --i) {
+                float f = (float)i / (float)passes;
+                float ex = spread * f * zm;
+                int a = (int)(28.0f * (1.0f - f) * (1.0f - f));
+                dl->AddRectFilled(ImVec2(p0.x + lx - ex, p0.y + ly - ex),
+                                  ImVec2(p1.x + lx + ex, p1.y + ly + ex),
+                                  IM_COL32(255, 255, 255, a), rnd + ex);
+            }
+        }
+        ImU32 fill = hovered ? IM_COL32(245, 247, 250, 255)
+                             : IM_COL32(239, 241, 243, 255);
+        dl->AddRectFilled(p0, p1, fill, rnd);
+
+        // Inner highlight
+        dl->AddLine(ImVec2(p0.x + rnd, p0.y + 1.0f * zm),
+                    ImVec2(p1.x - rnd, p0.y + 1.0f * zm),
+                    IM_COL32(255, 255, 255, 80), 1.0f * zm);
+        dl->AddLine(ImVec2(p0.x + rnd, p1.y - 1.0f * zm),
+                    ImVec2(p1.x - rnd, p1.y - 1.0f * zm),
+                    IM_COL32(0, 0, 0, 15), 1.0f * zm);
+
+        ImFont* font = ImGui::GetFont();
+        float fsz = ImGui::GetFontSize() * 0.9f * zm;
+        ImVec2 tsz = font->CalcTextSizeA(fsz, FLT_MAX, 0, label);
+        float tx = p0.x + (w - tsz.x) * 0.5f;
+        float ty = p0.y + (h - tsz.y) * 0.5f;
+        dl->AddText(font, fsz, ImVec2(tx, ty),
+                    IM_COL32(80, 85, 95, 255), label);
+    } else {
+        // Pressed: inset look
+        {
+            constexpr int passes = 6;
+            constexpr float spread = 3.0f;
+            float sdx = 1.0f * zm, sdy = 1.0f * zm;
+            for (int i = passes; i >= 0; --i) {
+                float f = (float)i / (float)passes;
+                float ex = spread * f * zm;
+                int a = (int)(10.0f * (1.0f - f) * (1.0f - f));
+                dl->AddRectFilled(ImVec2(p0.x + sdx - ex, p0.y + sdy - ex),
+                                  ImVec2(p1.x + sdx + ex, p1.y + sdy + ex),
+                                  IM_COL32(0, 0, 0, a), rnd + ex);
+            }
+        }
+        dl->AddRectFilled(p0, p1, IM_COL32(46, 113, 249, 255), rnd);
+
+        // Inner shadow on blue
+        for (int i = 1; i <= 3; ++i) {
+            float off = (float)i * 1.0f * zm;
+            float a = 1.0f - (float)(i - 1) / 3.0f;
+            dl->AddLine(ImVec2(p0.x + rnd, p0.y + off),
+                        ImVec2(p1.x - rnd, p0.y + off),
+                        IM_COL32(0, 0, 0, (int)(20.0f * a * a)), 1.0f * zm);
+        }
+        dl->AddLine(ImVec2(p0.x + rnd, p1.y - 1.0f * zm),
+                    ImVec2(p1.x - rnd, p1.y - 1.0f * zm),
+                    IM_COL32(255, 255, 255, 30), 1.0f * zm);
+
+        ImFont* font = ImGui::GetFont();
+        float fsz = ImGui::GetFontSize() * 0.9f * zm;
+        ImVec2 tsz = font->CalcTextSizeA(fsz, FLT_MAX, 0, label);
+        float tx = p0.x + (w - tsz.x) * 0.5f;
+        float ty = p0.y + (h - tsz.y) * 0.5f + 1.0f * zm;
+        dl->AddText(font, fsz, ImVec2(tx, ty),
+                    IM_COL32(255, 255, 255, 255), label);
+    }
+}
+
+// -------------------------------------------------------------------
+// Skeuomorphic Toggle Switch
+// -------------------------------------------------------------------
+
+static void DrawSkeuoToggleImpl(ImDrawList* dl, ImVec2 pos,
+                                 float w, float h, bool* value, float zm) {
+    ImVec2 p0 = pos, p1(pos.x + w, pos.y + h);
+    float rnd = h * 0.5f;
+    float cy = p0.y + h * 0.5f;
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 mp = io.MousePos;
+    bool hovered = mp.x >= p0.x && mp.x <= p1.x &&
+                   mp.y >= p0.y && mp.y <= p1.y;
+    if (hovered && ImGui::IsMouseClicked(0))
+        *value = !(*value);
+
+    float knob_r = h * 0.40f;
+    float knob_margin = h * 0.5f;
+    float knob_x = *value ? (p1.x - knob_margin) : (p0.x + knob_margin);
+
+    if (!(*value)) {
+        // Off: inset gray track
+        {
+            constexpr int passes = 6;
+            constexpr float spread = 3.0f;
+            for (int i = passes; i >= 0; --i) {
+                float f = (float)i / (float)passes;
+                float ex = spread * f * zm;
+                int a = (int)(12.0f * (1.0f - f) * (1.0f - f));
+                dl->AddRectFilled(ImVec2(p0.x + 1.0f * zm - ex, p0.y + 1.0f * zm - ex),
+                                  ImVec2(p1.x + 1.0f * zm + ex, p1.y + 1.0f * zm + ex),
+                                  IM_COL32(0, 0, 0, a), rnd + ex);
+            }
+        }
+        dl->AddRectFilled(p0, p1, IM_COL32(210, 212, 218, 255), rnd);
+        dl->AddLine(ImVec2(p0.x + rnd, p0.y + 1.0f * zm),
+                    ImVec2(p1.x - rnd, p0.y + 1.0f * zm),
+                    IM_COL32(0, 0, 0, 18), 1.0f * zm);
+        dl->AddLine(ImVec2(p0.x + rnd, p1.y - 1.0f * zm),
+                    ImVec2(p1.x - rnd, p1.y - 1.0f * zm),
+                    IM_COL32(255, 255, 255, 40), 1.0f * zm);
+    } else {
+        // On: blue track
+        {
+            constexpr int passes = 6;
+            constexpr float spread = 3.0f;
+            for (int i = passes; i >= 0; --i) {
+                float f = (float)i / (float)passes;
+                float ex = spread * f * zm;
+                int a = (int)(10.0f * (1.0f - f) * (1.0f - f));
+                dl->AddRectFilled(ImVec2(p0.x + 1.0f * zm - ex, p0.y + 1.0f * zm - ex),
+                                  ImVec2(p1.x + 1.0f * zm + ex, p1.y + 1.0f * zm + ex),
+                                  IM_COL32(0, 0, 0, a), rnd + ex);
+            }
+        }
+        dl->AddRectFilled(p0, p1, IM_COL32(46, 113, 249, 255), rnd);
+        for (int i = 1; i <= 2; ++i) {
+            float off = (float)i * 1.0f * zm;
+            float a = 1.0f - (float)(i - 1) / 2.0f;
+            dl->AddLine(ImVec2(p0.x + rnd, p0.y + off),
+                        ImVec2(p1.x - rnd, p0.y + off),
+                        IM_COL32(0, 0, 0, (int)(20.0f * a * a)), 1.0f * zm);
+        }
+    }
+
+    // Knob shadow
+    {
+        constexpr int passes = 8;
+        constexpr float spread = 4.0f;
+        for (int i = passes; i >= 0; --i) {
+            float f = (float)i / (float)passes;
+            float ex = spread * f * zm;
+            int a = (int)(20.0f * (1.0f - f) * (1.0f - f));
+            dl->AddCircleFilled(ImVec2(knob_x + 1.0f * zm, cy + 1.5f * zm),
+                                knob_r + ex, IM_COL32(0, 0, 0, a));
+        }
+    }
+    dl->AddCircleFilled(ImVec2(knob_x, cy), knob_r, IM_COL32(255, 255, 255, 255));
+    dl->AddCircle(ImVec2(knob_x, cy), knob_r, IM_COL32(0, 0, 0, 15), 0, 1.0f * zm);
+}
+
+// -------------------------------------------------------------------
+// Skeuomorphic Checkbox
+// -------------------------------------------------------------------
+
+static void DrawSkeuoCheckboxImpl(ImDrawList* dl, ImVec2 pos,
+                                   float sz, bool* checked,
+                                   const char* label, float zm) {
+    ImVec2 p0 = pos, p1(pos.x + sz, pos.y + sz);
+    float rnd = 4.0f * zm;
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 mp = io.MousePos;
+    bool hovered = mp.x >= p0.x && mp.x <= p1.x &&
+                   mp.y >= p0.y && mp.y <= p1.y;
+    if (hovered && ImGui::IsMouseClicked(0))
+        *checked = !(*checked);
+
+    if (!(*checked)) {
+        // Inset shadow (sunken)
+        {
+            constexpr int passes = 6;
+            constexpr float spread = 3.0f;
+            float ox = 1.0f * zm, oy = 1.0f * zm;
+            for (int i = passes; i >= 0; --i) {
+                float f = (float)i / (float)passes;
+                float ex = spread * f * zm;
+                int a = (int)(15.0f * (1.0f - f) * (1.0f - f));
+                dl->AddRectFilled(ImVec2(p0.x + ox - ex, p0.y + oy - ex),
+                                  ImVec2(p1.x + ox + ex, p1.y + oy + ex),
+                                  IM_COL32(0, 0, 0, a), rnd + ex * 0.5f);
+            }
+        }
+        dl->AddRectFilled(p0, p1, IM_COL32(220, 223, 228, 255), rnd);
+        dl->AddLine(ImVec2(p0.x + rnd * 0.5f, p0.y + 1.0f * zm),
+                    ImVec2(p1.x - rnd * 0.5f, p0.y + 1.0f * zm),
+                    IM_COL32(0, 0, 0, 20), 1.0f * zm);
+        dl->AddLine(ImVec2(p0.x + rnd * 0.5f, p1.y - 1.0f * zm),
+                    ImVec2(p1.x - rnd * 0.5f, p1.y - 1.0f * zm),
+                    IM_COL32(255, 255, 255, 50), 1.0f * zm);
+    } else {
+        // Checked: raised blue
+        {
+            constexpr int passes = 6;
+            constexpr float spread = 4.0f;
+            float sdx = 1.5f * zm, sdy = 1.5f * zm;
+            for (int i = passes; i >= 0; --i) {
+                float f = (float)i / (float)passes;
+                float ex = spread * f * zm;
+                int a = (int)(12.0f * (1.0f - f) * (1.0f - f));
+                dl->AddRectFilled(ImVec2(p0.x + sdx - ex, p0.y + sdy - ex),
+                                  ImVec2(p1.x + sdx + ex, p1.y + sdy + ex),
+                                  IM_COL32(0, 0, 0, a), rnd + ex * 0.5f);
+            }
+        }
+        {
+            constexpr int passes = 6;
+            constexpr float spread = 3.0f;
+            float lx = -1.0f * zm, ly = -1.0f * zm;
+            for (int i = passes; i >= 0; --i) {
+                float f = (float)i / (float)passes;
+                float ex = spread * f * zm;
+                int a = (int)(20.0f * (1.0f - f) * (1.0f - f));
+                dl->AddRectFilled(ImVec2(p0.x + lx - ex, p0.y + ly - ex),
+                                  ImVec2(p1.x + lx + ex, p1.y + ly + ex),
+                                  IM_COL32(255, 255, 255, a), rnd + ex * 0.5f);
+            }
+        }
+        dl->AddRectFilled(p0, p1, IM_COL32(46, 113, 249, 255), rnd);
+
+        // White checkmark
+        float cx = p0.x + sz * 0.5f;
+        float cy = p0.y + sz * 0.5f;
+        float s = sz * 0.28f;
+        float lw = 2.5f * zm;
+        dl->AddLine(ImVec2(cx - s, cy), ImVec2(cx - s * 0.2f, cy + s * 0.8f),
+                    IM_COL32(255, 255, 255, 255), lw);
+        dl->AddLine(ImVec2(cx - s * 0.2f, cy + s * 0.8f), ImVec2(cx + s, cy - s * 0.6f),
+                    IM_COL32(255, 255, 255, 255), lw);
+    }
+
+    if (label && *label) {
+        ImFont* font = ImGui::GetFont();
+        float fsz = ImGui::GetFontSize() * 0.85f * zm;
+        float tx = p1.x + 6.0f * zm;
+        float ty = p0.y + (sz - fsz) * 0.5f;
+        dl->AddText(font, fsz, ImVec2(tx, ty),
+                    IM_COL32(80, 85, 95, 255), label);
+    }
+}
+
+// -------------------------------------------------------------------
+// Skeuomorphic Radio Button
+// -------------------------------------------------------------------
+
+static void DrawSkeuoRadioImpl(ImDrawList* dl, ImVec2 pos,
+                                float sz, bool selected,
+                                const char* label, float zm) {
+    float r = sz * 0.5f;
+    float cx = pos.x + r, cy = pos.y + r;
+
+    if (!selected) {
+        // Inset circle
+        {
+            constexpr int passes = 6;
+            constexpr float spread = 3.0f;
+            for (int i = passes; i >= 0; --i) {
+                float f = (float)i / (float)passes;
+                float ex = spread * f * zm;
+                int a = (int)(14.0f * (1.0f - f) * (1.0f - f));
+                dl->AddCircleFilled(ImVec2(cx + 1.0f * zm, cy + 1.0f * zm),
+                                    r + ex, IM_COL32(0, 0, 0, a));
+            }
+        }
+        dl->AddCircleFilled(ImVec2(cx, cy), r, IM_COL32(220, 223, 228, 255));
+    } else {
+        // Raised blue circle
+        {
+            constexpr int passes = 6;
+            constexpr float spread = 4.0f;
+            for (int i = passes; i >= 0; --i) {
+                float f = (float)i / (float)passes;
+                float ex = spread * f * zm;
+                int a = (int)(12.0f * (1.0f - f) * (1.0f - f));
+                dl->AddCircleFilled(ImVec2(cx + 1.5f * zm, cy + 1.5f * zm),
+                                    r + ex, IM_COL32(0, 0, 0, a));
+            }
+        }
+        {
+            constexpr int passes = 4;
+            constexpr float spread = 3.0f;
+            for (int i = passes; i >= 0; --i) {
+                float f = (float)i / (float)passes;
+                float ex = spread * f * zm;
+                int a = (int)(18.0f * (1.0f - f) * (1.0f - f));
+                dl->AddCircleFilled(ImVec2(cx - 1.0f * zm, cy - 1.0f * zm),
+                                    r + ex, IM_COL32(255, 255, 255, a));
+            }
+        }
+        dl->AddCircleFilled(ImVec2(cx, cy), r, IM_COL32(46, 113, 249, 255));
+        dl->AddCircleFilled(ImVec2(cx, cy), r * 0.35f, IM_COL32(255, 255, 255, 255));
+    }
+
+    if (label && *label) {
+        ImFont* font = ImGui::GetFont();
+        float fsz = ImGui::GetFontSize() * 0.85f * zm;
+        float tx = pos.x + sz + 6.0f * zm;
+        float ty = pos.y + (sz - fsz) * 0.5f;
+        dl->AddText(font, fsz, ImVec2(tx, ty),
+                    IM_COL32(80, 85, 95, 255), label);
+    }
+}
+
+// -------------------------------------------------------------------
+// Skeuomorphic Input (display-only)
+// -------------------------------------------------------------------
+
+static void DrawSkeuoInputImpl(ImDrawList* dl, ImVec2 pos,
+                                float w, float h,
+                                const char* text, float zm) {
+    ImVec2 p0 = pos, p1(pos.x + w, pos.y + h);
+    float rnd = 6.0f * zm;
+
+    // Inset shadow (dark top-left, light bottom-right)
+    {
+        constexpr int passes = 6;
+        constexpr float spread = 3.0f;
+        float ox = 1.0f * zm, oy = 1.0f * zm;
+        for (int i = passes; i >= 0; --i) {
+            float f = (float)i / (float)passes;
+            float ex = spread * f * zm;
+            int a = (int)(14.0f * (1.0f - f) * (1.0f - f));
+            dl->AddRectFilled(ImVec2(p0.x + ox - ex, p0.y + oy - ex),
+                              ImVec2(p1.x + ox + ex, p1.y + oy + ex),
+                              IM_COL32(0, 0, 0, a), rnd + ex * 0.5f);
+        }
+    }
+
+    dl->AddRectFilled(p0, p1, IM_COL32(228, 230, 234, 255), rnd);
+
+    // Inner edge lines
+    dl->AddLine(ImVec2(p0.x + rnd, p0.y + 1.0f * zm),
+                ImVec2(p1.x - rnd, p0.y + 1.0f * zm),
+                IM_COL32(0, 0, 0, 18), 1.0f * zm);
+    dl->AddLine(ImVec2(p0.x + rnd, p1.y - 1.0f * zm),
+                ImVec2(p1.x - rnd, p1.y - 1.0f * zm),
+                IM_COL32(255, 255, 255, 45), 1.0f * zm);
+
+    // Text (clipped)
+    if (text && *text) {
+        float pad = 8.0f * zm;
+        ImFont* font = ImGui::GetFont();
+        float fsz = ImGui::GetFontSize() * 0.85f * zm;
+        dl->PushClipRect(ImVec2(p0.x + pad, p0.y), ImVec2(p1.x - pad, p1.y), true);
+        float ty = p0.y + (h - fsz) * 0.5f;
+        dl->AddText(font, fsz, ImVec2(p0.x + pad, ty),
+                    IM_COL32(60, 65, 75, 255), text);
+        dl->PopClipRect();
+    }
+}
+
+// -------------------------------------------------------------------
+// Skeuomorphic Progress Bar
+// -------------------------------------------------------------------
+
+static void DrawSkeuoProgressBarImpl(ImDrawList* dl, ImVec2 pos,
+                                      float w, float h,
+                                      float value, float zm) {
+    ImVec2 p0 = pos, p1(pos.x + w, pos.y + h);
+    float rnd = h * 0.5f;
+
+    // Inset track shadow
+    {
+        constexpr int passes = 8;
+        constexpr float spread = 4.0f;
+        float ox = 1.0f * zm, oy = 1.0f * zm;
+        for (int i = passes; i >= 0; --i) {
+            float f = (float)i / (float)passes;
+            float ex = spread * f * zm;
+            int a = (int)(14.0f * (1.0f - f) * (1.0f - f));
+            dl->AddRectFilled(ImVec2(p0.x + ox - ex, p0.y + oy - ex),
+                              ImVec2(p1.x + ox + ex, p1.y + oy + ex),
+                              IM_COL32(0, 0, 0, a), rnd + ex);
+        }
+    }
+
+    // Gray background track
+    dl->AddRectFilled(p0, p1, IM_COL32(218, 220, 226, 255), rnd);
+    dl->AddLine(ImVec2(p0.x + rnd, p0.y + 1.0f * zm),
+                ImVec2(p1.x - rnd, p0.y + 1.0f * zm),
+                IM_COL32(0, 0, 0, 15), 1.0f * zm);
+    dl->AddLine(ImVec2(p0.x + rnd, p1.y - 1.0f * zm),
+                ImVec2(p1.x - rnd, p1.y - 1.0f * zm),
+                IM_COL32(255, 255, 255, 35), 1.0f * zm);
+
+    // Blue fill
+    float fill_w = w * std::clamp(value, 0.0f, 1.0f);
+    if (fill_w > rnd * 2.0f) {
+        dl->PushClipRect(p0, ImVec2(p0.x + fill_w, p1.y), true);
+        dl->AddRectFilled(p0, p1, IM_COL32(46, 113, 249, 255), rnd);
+        // Highlight band near top
+        dl->AddLine(ImVec2(p0.x + rnd, p0.y + 2.0f * zm),
+                    ImVec2(p0.x + fill_w - rnd * 0.5f, p0.y + 2.0f * zm),
+                    IM_COL32(100, 160, 255, 80), 1.5f * zm);
+        dl->PopClipRect();
+    }
+
+    // Percentage text
+    {
+        char buf[16];
+        std::snprintf(buf, sizeof(buf), "%d%%", (int)(value * 100.0f));
+        ImFont* font = ImGui::GetFont();
+        float fsz = ImGui::GetFontSize() * 0.75f * zm;
+        ImVec2 tsz = font->CalcTextSizeA(fsz, FLT_MAX, 0, buf);
+        float tx = p0.x + (w - tsz.x) * 0.5f;
+        float ty = p0.y + (h - tsz.y) * 0.5f;
+        bool over_fill = (tx + tsz.x * 0.5f) < (p0.x + fill_w);
+        ImU32 col = over_fill ? IM_COL32(255, 255, 255, 220)
+                              : IM_COL32(120, 125, 135, 180);
+        dl->AddText(font, fsz, ImVec2(tx, ty), col, buf);
+    }
+}
+
+static void DrawSkeuomorphTab(float dpi_scale) {
     ImVec2 cursor = ImGui::GetCursorScreenPos();
     ImVec2 avail = ImGui::GetContentRegionAvail();
 
     ImVec2 p0 = cursor;
     ImVec2 p1(cursor.x + avail.x, cursor.y + avail.y);
 
+    ImDrawList* bg_dl = ImGui::GetWindowDrawList();
     ImU32 fill   = IM_COL32(237, 241, 244, 255);
     ImU32 border = IM_COL32(220, 222, 228, 180);
     float bg_rnd = 8.0f * dpi_scale;
-    dl->AddRectFilled(p0, p1, fill, bg_rnd);
-    dl->AddRect(p0, p1, border, bg_rnd, 0, 1.0f);
+    bg_dl->AddRectFilled(p0, p1, fill, bg_rnd);
+    bg_dl->AddRect(p0, p1, border, bg_rnd, 0, 1.0f);
 
-    ImGui::InvisibleButton("##skeuo_area", avail);
-    bool area_hovered = ImGui::IsItemHovered();
+    ImGui::BeginChild("##skeuo_scroll", avail, false);
 
-    float card_sz = 220.0f;
-    float slider_w = std::min(avail.x - 30.0f, 420.0f);
-    float slider_h = 50.0f;
-    float gap = 24.0f;
-    float group_h = card_sz + gap + slider_h;
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    float pad = 16.0f;
+    float cw = avail.x - pad * 2.0f;
+    float cx = pad;
+    float gap = 18.0f;
 
-    float group_y = p0.y + (avail.y - group_h) * 0.5f;
-    float card_x = p0.x + (avail.x - card_sz) * 0.5f;
-    float card_y = group_y;
-    ImVec2 cp0(card_x, card_y);
-    ImVec2 cp1(card_x + card_sz, card_y + card_sz);
+    #define SKEUO_SEL(t) { ImVec2 _mp = ImGui::GetIO().MousePos; \
+        if (_mp.x >= _x0 && _mp.x <= _x1 && _mp.y >= _y0 && _mp.y <= _y1 \
+            && ImGui::IsMouseClicked(0)) g_selected_widget = WidgetType::t; }
 
-    float sl_x = p0.x + (avail.x - slider_w) * 0.5f;
-    float sl_y = card_y + card_sz + gap;
+    ImGui::Spacing();
+    ImGui::Indent(pad);
+    ImGui::TextDisabled(ICON_FA_CUBE " \xd0\x9a\xd0\xb0\xd1\x80\xd1\x82\xd0\xbe\xd1\x87\xd0\xba\xd0\xb0 \xd0\xb8 \xd1\x81\xd0\xbb\xd0\xb0\xd0\xb9\xd0\xb4\xd0\xb5\xd1\x80");
+    ImGui::Unindent(pad);
+    DrUI::GradientSeparator();
+    ImGui::Spacing();
 
-    if (area_hovered && ImGui::IsMouseClicked(0)) {
-        ImVec2 mp = io.MousePos;
-        if (mp.x >= cp0.x && mp.x <= cp1.x &&
-            mp.y >= cp0.y && mp.y <= cp1.y) {
+    // --- Card ---
+    {
+        float card_sz = 220.0f;
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        float card_x = cur.x + (cw + pad * 2.0f - card_sz) * 0.5f;
+        float card_y = cur.y;
+        float _x0 = card_x, _y0 = card_y, _x1 = card_x + card_sz, _y1 = card_y + card_sz;
+
+        if (ImGui::GetIO().MousePos.x >= _x0 && ImGui::GetIO().MousePos.x <= _x1 &&
+            ImGui::GetIO().MousePos.y >= _y0 && ImGui::GetIO().MousePos.y <= _y1 &&
+            ImGui::IsMouseClicked(0)) {
             g_card_active = !g_card_active;
             g_selected_widget = WidgetType::SkeuomorphCard;
         }
-        float thumb_ext = slider_h * 0.58f;
-        if (mp.x >= sl_x && mp.x <= sl_x + slider_w &&
-            mp.y >= sl_y - thumb_ext && mp.y <= sl_y + slider_h + thumb_ext) {
-            g_selected_widget = WidgetType::SkeuomorphSlider;
-        }
+
+        DrawSkeuomorphCardImpl(dl, ImVec2(card_x, card_y), card_sz, g_card_active, 1.0f);
+        ImGui::Dummy(ImVec2(cw, card_sz + gap));
     }
 
-    DrawSkeuomorphCardImpl(dl, cp0, card_sz, g_card_active, 1.0f);
-    DrawSkeuomorphSliderImpl(dl, ImVec2(sl_x, sl_y), slider_w, slider_h,
-                             &g_skeuo_slider_val, 1.0f);
+    // --- Slider ---
+    {
+        float slider_w = std::min(cw, 380.0f);
+        float slider_h = 50.0f;
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        float sl_x = cur.x + (cw + pad * 2.0f - slider_w) * 0.5f;
+        float sl_y = cur.y;
+        float _x0 = sl_x, _y0 = sl_y - slider_h * 0.1f;
+        float _x1 = sl_x + slider_w, _y1 = sl_y + slider_h * 1.2f;
+        SKEUO_SEL(SkeuomorphSlider);
+        DrawSkeuomorphSliderImpl(dl, ImVec2(sl_x, sl_y), slider_w, slider_h,
+                                 &g_skeuo_slider_val, 1.0f);
+        ImGui::Dummy(ImVec2(cw, slider_h + gap + 8.0f));
+    }
+
+    ImGui::Spacing();
+    ImGui::Indent(pad);
+    ImGui::TextDisabled(ICON_FA_BOLT " \xd0\x9a\xd0\xbd\xd0\xbe\xd0\xbf\xd0\xba\xd0\xb8 \xd0\xb8 \xd0\xbf\xd0\xb5\xd1\x80\xd0\xb5\xd0\xba\xd0\xbb\xd1\x8e\xd1\x87\xd0\xb0\xd1\x82\xd0\xb5\xd0\xbb\xd0\xb8");
+    ImGui::Unindent(pad);
+    DrUI::GradientSeparator();
+    ImGui::Spacing();
+
+    // --- Buttons ---
+    {
+        static bool btn1 = false, btn2 = true;
+        float bw = 120.0f, bh = 36.0f;
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        float row_w = bw * 2.0f + 12.0f;
+        float bx = cur.x + (cw + pad * 2.0f - row_w) * 0.5f;
+        float _x0 = bx, _y0 = cur.y, _x1 = bx + row_w, _y1 = cur.y + bh;
+        SKEUO_SEL(SkeuoButton);
+        DrawSkeuoButtonImpl(dl, ImVec2(bx, cur.y), bw, bh, "Normal", &btn1, 1.0f);
+        DrawSkeuoButtonImpl(dl, ImVec2(bx + bw + 12.0f, cur.y), bw, bh, "Active", &btn2, 1.0f);
+        ImGui::Dummy(ImVec2(cw, bh + gap));
+    }
+
+    // --- Toggles ---
+    {
+        static bool tog1 = true, tog2 = false;
+        float tw = 52.0f, th = 28.0f;
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        float row_w = tw * 2.0f + 16.0f;
+        float bx = cur.x + (cw + pad * 2.0f - row_w) * 0.5f;
+        float _x0 = bx, _y0 = cur.y, _x1 = bx + row_w, _y1 = cur.y + th;
+        SKEUO_SEL(SkeuoToggle);
+        DrawSkeuoToggleImpl(dl, ImVec2(bx, cur.y), tw, th, &tog1, 1.0f);
+        DrawSkeuoToggleImpl(dl, ImVec2(bx + tw + 16.0f, cur.y), tw, th, &tog2, 1.0f);
+        ImGui::Dummy(ImVec2(cw, th + gap));
+    }
+
+    ImGui::Spacing();
+    ImGui::Indent(pad);
+    ImGui::TextDisabled(ICON_FA_CHECK " \xd0\x92\xd1\x8b\xd0\xb1\xd0\xbe\xd1\x80 \xd0\xb8 \xd0\xb2\xd0\xb2\xd0\xbe\xd0\xb4");
+    ImGui::Unindent(pad);
+    DrUI::GradientSeparator();
+    ImGui::Spacing();
+
+    // --- Checkboxes ---
+    {
+        static bool chk1 = true, chk2 = false, chk3 = true;
+        float sz = 20.0f;
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        float bx = cur.x + pad;
+        float _x0 = bx, _y0 = cur.y, _x1 = bx + cw, _y1 = cur.y + sz * 3.0f + 8.0f * 2.0f;
+        SKEUO_SEL(SkeuoCheckbox);
+        DrawSkeuoCheckboxImpl(dl, ImVec2(bx, cur.y), sz, &chk1, "Option A", 1.0f);
+        DrawSkeuoCheckboxImpl(dl, ImVec2(bx, cur.y + sz + 8.0f), sz, &chk2, "Option B", 1.0f);
+        DrawSkeuoCheckboxImpl(dl, ImVec2(bx, cur.y + (sz + 8.0f) * 2.0f), sz, &chk3, "Option C", 1.0f);
+        ImGui::Dummy(ImVec2(cw, sz * 3.0f + 8.0f * 2.0f + gap));
+    }
+
+    // --- Radio buttons ---
+    {
+        static int radio_sel = 0;
+        float sz = 20.0f;
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        float bx = cur.x + pad;
+        float _x0 = bx, _y0 = cur.y, _x1 = bx + cw, _y1 = cur.y + sz * 3.0f + 8.0f * 2.0f;
+        SKEUO_SEL(SkeuoRadio);
+
+        for (int i = 0; i < 3; ++i) {
+            const char* labels[] = {"Mode 1", "Mode 2", "Mode 3"};
+            bool sel = (radio_sel == i);
+            float ry = cur.y + (float)i * (sz + 8.0f);
+            ImVec2 rmp = ImGui::GetIO().MousePos;
+            if (rmp.x >= bx && rmp.x <= bx + 100.0f &&
+                rmp.y >= ry && rmp.y <= ry + sz && ImGui::IsMouseClicked(0))
+                radio_sel = i;
+            DrawSkeuoRadioImpl(dl, ImVec2(bx, ry), sz, sel, labels[i], 1.0f);
+        }
+        ImGui::Dummy(ImVec2(cw, sz * 3.0f + 8.0f * 2.0f + gap));
+    }
+
+    ImGui::Spacing();
+    ImGui::Indent(pad);
+    ImGui::TextDisabled(ICON_FA_EDIT " \xd0\x9f\xd0\xbe\xd0\xbb\xd0\xb5 \xd0\xb2\xd0\xb2\xd0\xbe\xd0\xb4\xd0\xb0 \xd0\xb8 \xd0\xbf\xd1\x80\xd0\xbe\xd0\xb3\xd1\x80\xd0\xb5\xd1\x81\xd1\x81");
+    ImGui::Unindent(pad);
+    DrUI::GradientSeparator();
+    ImGui::Spacing();
+
+    // --- Input ---
+    {
+        float iw = std::min(cw - 8.0f, 300.0f), ih = 32.0f;
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        float bx = cur.x + (cw + pad * 2.0f - iw) * 0.5f;
+        float _x0 = bx, _y0 = cur.y, _x1 = bx + iw, _y1 = cur.y + ih;
+        SKEUO_SEL(SkeuoInput);
+        DrawSkeuoInputImpl(dl, ImVec2(bx, cur.y), iw, ih,
+                           "Hello, Skeuomorph!", 1.0f);
+        ImGui::Dummy(ImVec2(cw, ih + gap));
+    }
+
+    // --- Progress bar ---
+    {
+        float pw = std::min(cw - 8.0f, 300.0f), ph = 22.0f;
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        float bx = cur.x + (cw + pad * 2.0f - pw) * 0.5f;
+        float _x0 = bx, _y0 = cur.y, _x1 = bx + pw, _y1 = cur.y + ph;
+        SKEUO_SEL(SkeuoProgress);
+        DrawSkeuoProgressBarImpl(dl, ImVec2(bx, cur.y), pw, ph, 0.65f, 1.0f);
+        ImGui::Dummy(ImVec2(cw, ph + gap));
+    }
+
+    #undef SKEUO_SEL
+
+    ImGui::EndChild();
 }
 
 static void DrawLeftPanel(const PanelLayout& zone, float dpi_scale,
@@ -853,6 +1434,12 @@ static ImVec2 GetPreviewWorldSize(WidgetType type, float dpi_scale) {
     case WidgetType::GlowGradientBorder:  cw = 380; ch = 130; break;
     case WidgetType::SkeuomorphCard:      cw = 280; ch = 280; break;
     case WidgetType::SkeuomorphSlider:   cw = 460; ch = 100; break;
+    case WidgetType::SkeuoButton:        cw = 200; ch = 60;  break;
+    case WidgetType::SkeuoToggle:        cw = 120; ch = 60;  break;
+    case WidgetType::SkeuoCheckbox:      cw = 250; ch = 40;  break;
+    case WidgetType::SkeuoRadio:         cw = 250; ch = 40;  break;
+    case WidgetType::SkeuoInput:         cw = 350; ch = 60;  break;
+    case WidgetType::SkeuoProgress:      cw = 350; ch = 50;  break;
     default:                              cw = 380; ch = 200; break;
     }
     float pad2 = kPrevWorldPad * 2.0f;
@@ -1085,6 +1672,113 @@ static void DrawWidgetPreview(WidgetType type, float dpi_scale) {
         DrawSkeuomorphSliderImpl(dl, ImVec2(sx, sy), sl_w, sl_h,
                                  &g_skeuo_slider_val, dpi_scale);
         ImGui::Dummy(ImVec2(avail_w, total_h));
+        break;
+    }
+    case WidgetType::SkeuoButton: {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float bw = 160.0f * dpi_scale, bh = 38.0f * dpi_scale;
+        float pad = 16.0f * dpi_scale;
+        float tw = bw + pad * 2.0f, th = bh + pad * 2.0f;
+        float aw = ImGui::GetContentRegionAvail().x;
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        float bx = cur.x + (aw - tw) * 0.5f, by = cur.y;
+        dl->AddRectFilled(ImVec2(bx, by), ImVec2(bx + tw, by + th),
+                          IM_COL32(237, 241, 244, 255), 8.0f * dpi_scale);
+        dl->AddRect(ImVec2(bx, by), ImVec2(bx + tw, by + th),
+                    IM_COL32(220, 222, 228, 180), 8.0f * dpi_scale, 0, 1.0f);
+        static bool skeuo_btn_st = false;
+        DrawSkeuoButtonImpl(dl, ImVec2(bx + pad, by + pad), bw, bh,
+                            "Button", &skeuo_btn_st, dpi_scale);
+        ImGui::Dummy(ImVec2(aw, th));
+        break;
+    }
+    case WidgetType::SkeuoToggle: {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float tw = 56.0f * dpi_scale, th = 28.0f * dpi_scale;
+        float pad = 16.0f * dpi_scale;
+        float totw = tw + pad * 2.0f, toth = th + pad * 2.0f;
+        float aw = ImGui::GetContentRegionAvail().x;
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        float bx = cur.x + (aw - totw) * 0.5f, by = cur.y;
+        dl->AddRectFilled(ImVec2(bx, by), ImVec2(bx + totw, by + toth),
+                          IM_COL32(237, 241, 244, 255), 8.0f * dpi_scale);
+        dl->AddRect(ImVec2(bx, by), ImVec2(bx + totw, by + toth),
+                    IM_COL32(220, 222, 228, 180), 8.0f * dpi_scale, 0, 1.0f);
+        static bool skeuo_tog_st = false;
+        DrawSkeuoToggleImpl(dl, ImVec2(bx + pad, by + pad), tw, th,
+                            &skeuo_tog_st, dpi_scale);
+        ImGui::Dummy(ImVec2(aw, toth));
+        break;
+    }
+    case WidgetType::SkeuoCheckbox: {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float sz = 22.0f * dpi_scale;
+        float pad = 16.0f * dpi_scale;
+        float totw = 200.0f * dpi_scale + pad * 2.0f;
+        float toth = sz + pad * 2.0f;
+        float aw = ImGui::GetContentRegionAvail().x;
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        float bx = cur.x + (aw - totw) * 0.5f, by = cur.y;
+        dl->AddRectFilled(ImVec2(bx, by), ImVec2(bx + totw, by + toth),
+                          IM_COL32(237, 241, 244, 255), 8.0f * dpi_scale);
+        dl->AddRect(ImVec2(bx, by), ImVec2(bx + totw, by + toth),
+                    IM_COL32(220, 222, 228, 180), 8.0f * dpi_scale, 0, 1.0f);
+        static bool skeuo_chk_st = true;
+        DrawSkeuoCheckboxImpl(dl, ImVec2(bx + pad, by + pad), sz,
+                              &skeuo_chk_st, "Option", dpi_scale);
+        ImGui::Dummy(ImVec2(aw, toth));
+        break;
+    }
+    case WidgetType::SkeuoRadio: {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float sz = 22.0f * dpi_scale;
+        float pad = 16.0f * dpi_scale;
+        float totw = 200.0f * dpi_scale + pad * 2.0f;
+        float toth = sz + pad * 2.0f;
+        float aw = ImGui::GetContentRegionAvail().x;
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        float bx = cur.x + (aw - totw) * 0.5f, by = cur.y;
+        dl->AddRectFilled(ImVec2(bx, by), ImVec2(bx + totw, by + toth),
+                          IM_COL32(237, 241, 244, 255), 8.0f * dpi_scale);
+        dl->AddRect(ImVec2(bx, by), ImVec2(bx + totw, by + toth),
+                    IM_COL32(220, 222, 228, 180), 8.0f * dpi_scale, 0, 1.0f);
+        DrawSkeuoRadioImpl(dl, ImVec2(bx + pad, by + pad), sz,
+                           true, "Selected", dpi_scale);
+        ImGui::Dummy(ImVec2(aw, toth));
+        break;
+    }
+    case WidgetType::SkeuoInput: {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float iw = 300.0f * dpi_scale, ih = 32.0f * dpi_scale;
+        float pad = 16.0f * dpi_scale;
+        float totw = iw + pad * 2.0f, toth = ih + pad * 2.0f;
+        float aw = ImGui::GetContentRegionAvail().x;
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        float bx = cur.x + (aw - totw) * 0.5f, by = cur.y;
+        dl->AddRectFilled(ImVec2(bx, by), ImVec2(bx + totw, by + toth),
+                          IM_COL32(237, 241, 244, 255), 8.0f * dpi_scale);
+        dl->AddRect(ImVec2(bx, by), ImVec2(bx + totw, by + toth),
+                    IM_COL32(220, 222, 228, 180), 8.0f * dpi_scale, 0, 1.0f);
+        DrawSkeuoInputImpl(dl, ImVec2(bx + pad, by + pad), iw, ih,
+                           "Hello, Skeuomorph!", dpi_scale);
+        ImGui::Dummy(ImVec2(aw, toth));
+        break;
+    }
+    case WidgetType::SkeuoProgress: {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float pw = 300.0f * dpi_scale, ph = 24.0f * dpi_scale;
+        float pad = 16.0f * dpi_scale;
+        float totw = pw + pad * 2.0f, toth = ph + pad * 2.0f;
+        float aw = ImGui::GetContentRegionAvail().x;
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        float bx = cur.x + (aw - totw) * 0.5f, by = cur.y;
+        dl->AddRectFilled(ImVec2(bx, by), ImVec2(bx + totw, by + toth),
+                          IM_COL32(237, 241, 244, 255), 8.0f * dpi_scale);
+        dl->AddRect(ImVec2(bx, by), ImVec2(bx + totw, by + toth),
+                    IM_COL32(220, 222, 228, 180), 8.0f * dpi_scale, 0, 1.0f);
+        DrawSkeuoProgressBarImpl(dl, ImVec2(bx + pad, by + pad), pw, ph,
+                                 0.65f, dpi_scale);
+        ImGui::Dummy(ImVec2(aw, toth));
         break;
     }
     }
