@@ -26,6 +26,7 @@ struct EditorSplitters {
 
 struct PanelVisibility {
     bool tab_widgets       = true;
+    bool tab_custom        = true;
     bool tab_skeuomorph    = true;
     bool status_bar        = true;
     float dpi_scale        = 1.0f;

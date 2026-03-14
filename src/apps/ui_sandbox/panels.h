@@ -54,6 +54,7 @@ static void DrawMainMenuBar(PanelVisibility& panels) {
 
     if (ImGui::BeginMenu(ICON_FA_EYE "  \xd0\x92\xd0\xb8\xd0\xb4")) {
         ImGui::MenuItem(ICON_FA_COG " \xd0\x92\xd0\xb8\xd0\xb4\xd0\xb6\xd0\xb5\xd1\x82\xd1\x8b", nullptr, &panels.tab_widgets);
+        ImGui::MenuItem(ICON_FA_BOLT " Custom", nullptr, &panels.tab_custom);
         ImGui::Separator();
         ImGui::MenuItem(ICON_FA_BARS " \xd0\xa1\xd1\x82\xd1\x80\xd0\xbe\xd0\xba\xd0\xb0 \xd1\x81\xd0\xbe\xd1\x81\xd1\x82\xd0\xbe\xd1\x8f\xd0\xbd\xd0\xb8\xd1\x8f", nullptr, &panels.status_bar);
         ImGui::Separator();
@@ -268,6 +269,19 @@ static void DrawWidgetsTab(float dpi_scale) {
         W_SEL(ColorEdit4);
     }
     DrUI::CardEnd();
+
+    #undef W_SEL
+
+    ImGui::EndChild();
+}
+
+static void DrawCustomTab(float dpi_scale) {
+    ImGui::TextDisabled(ICON_FA_BOLT " Custom \xd0\xb2\xd0\xb8\xd0\xb4\xd0\xb6\xd0\xb5\xd1\x82\xd1\x8b");
+    DrUI::GradientSeparator();
+
+    ImGui::BeginChild("##custom_scroll", ImVec2(0, 0), false);
+
+    #define W_SEL(t) if (ImGui::IsItemClicked()) g_selected_widget = WidgetType::t
 
     DrUI::CardBegin(ICON_FA_BOLT " Shimmer Text", false);
     {
@@ -791,6 +805,10 @@ static void DrawLeftPanel(const PanelLayout& zone, float dpi_scale,
     if (ImGui::BeginTabBar("##LeftTabs", ImGuiTabBarFlags_DrawSelectedOverline)) {
         if (panels.tab_widgets && ImGui::BeginTabItem(ICON_FA_COG " \xd0\x92\xd0\xb8\xd0\xb4\xd0\xb6\xd0\xb5\xd1\x82\xd1\x8b", &panels.tab_widgets)) {
             DrawWidgetsTab(dpi_scale);
+            ImGui::EndTabItem();
+        }
+        if (panels.tab_custom && ImGui::BeginTabItem(ICON_FA_BOLT " Custom", &panels.tab_custom)) {
+            DrawCustomTab(dpi_scale);
             ImGui::EndTabItem();
         }
         if (panels.tab_skeuomorph && ImGui::BeginTabItem(ICON_FA_CUBE " Skeuomorph", &panels.tab_skeuomorph)) {
