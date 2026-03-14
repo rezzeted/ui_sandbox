@@ -329,47 +329,15 @@ static void DrawWidgetsTab(float dpi_scale) {
 
 static bool g_card_active = false;
 
-static void DrawSkeuomorphTab(float dpi_scale) {
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    ImGuiIO& io = ImGui::GetIO();
-    ImVec2 cursor = ImGui::GetCursorScreenPos();
-    ImVec2 avail = ImGui::GetContentRegionAvail();
-
-    ImVec2 p0 = cursor;
-    ImVec2 p1(cursor.x + avail.x, cursor.y + avail.y);
-
-    ImU32 fill   = IM_COL32(238, 234, 226, 245);
-    ImU32 border = IM_COL32(230, 225, 215, 180);
-    float bg_rnd = 8.0f * dpi_scale;
-    dl->AddRectFilled(p0, p1, fill, bg_rnd);
-    dl->AddRect(p0, p1, border, bg_rnd, 0, 1.0f);
-
-    ImGui::InvisibleButton("##skeuo_area", avail);
-    bool area_hovered = ImGui::IsItemHovered();
-
+static void DrawSkeuomorphCardImpl(ImDrawList* dl, ImVec2 cp0,
+                                    float card_sz, bool active, float zm) {
     constexpr float PI = 3.14159265f;
-    const float zm = 1.0f;
-    float card_sz = 220.0f;
-    float rnd = 24.0f;
-    float pad = 22.0f;
+    ImVec2 cp1(cp0.x + card_sz, cp0.y + card_sz);
+    float rnd = 24.0f * zm;
+    float pad = 22.0f * zm;
 
-    float cx = p0.x + (avail.x - card_sz) * 0.5f;
-    float cy = p0.y + (avail.y - card_sz) * 0.5f;
-    ImVec2 cp0(cx, cy);
-    ImVec2 cp1(cx + card_sz, cy + card_sz);
-
-    if (area_hovered && ImGui::IsMouseClicked(0)) {
-        ImVec2 mp = io.MousePos;
-        if (mp.x >= cp0.x && mp.x <= cp1.x &&
-            mp.y >= cp0.y && mp.y <= cp1.y) {
-            g_card_active = !g_card_active;
-            g_selected_widget = WidgetType::SkeuomorphCard;
-        }
-    }
-
-    if (g_card_active) {
-        ImU32 blue_dark = IM_COL32(40, 90, 200, 255);
-        dl->AddRectFilled(cp0, cp1, blue_dark, rnd);
+    if (active) {
+        dl->AddRectFilled(cp0, cp1, IM_COL32(46, 113, 249, 255), rnd);
 
         {
             constexpr int passes = 6;
@@ -480,13 +448,13 @@ static void DrawSkeuomorphTab(float dpi_scale) {
             float tw = 44.0f * zm, th = 24.0f * zm, trnd = th * 0.5f;
             float ttx = cp1.x - pad - tw, tty = cp1.y - pad - th + 2.0f * zm;
             ImVec2 tp0(ttx, tty), tp1(ttx + tw, tty + th);
-            dl->AddRectFilled(tp0, tp1, IM_COL32(35, 85, 190, 200), trnd);
-            dl->AddRect(tp0, tp1, IM_COL32(100, 170, 255, 80), trnd, 0, 1.0f * zm);
+            dl->AddRectFilled(tp0, tp1, IM_COL32(42, 86, 196, 220), trnd);
+            dl->AddRect(tp0, tp1, IM_COL32(100, 160, 240, 80), trnd, 0, 1.0f * zm);
             float kr = (th * 0.5f) - 3.0f * zm;
             dl->AddCircleFilled(ImVec2(tp1.x - th * 0.5f, tp0.y + th * 0.5f), kr, wh);
         }
     } else {
-        ImU32 card_fill = IM_COL32(242, 238, 230, 255);
+        ImU32 card_fill = IM_COL32(239, 241, 243, 255);
 
         {
             constexpr int passes = 12;
@@ -519,8 +487,8 @@ static void DrawSkeuomorphTab(float dpi_scale) {
 
         dl->AddRectFilled(cp0, cp1, card_fill, rnd);
 
-        ImU32 dk = IM_COL32(80, 75, 68, 255);
-        ImU32 dk70 = IM_COL32(80, 75, 68, 140);
+        ImU32 dk = IM_COL32(100, 105, 115, 255);
+        ImU32 dk70 = IM_COL32(100, 105, 115, 140);
 
         {
             float icx = cp0.x + pad + 14.0f * zm;
@@ -557,13 +525,49 @@ static void DrawSkeuomorphTab(float dpi_scale) {
             float tw = 44.0f * zm, th = 24.0f * zm, trnd = th * 0.5f;
             float ttx = cp1.x - pad - tw, tty = cp1.y - pad - th + 2.0f * zm;
             ImVec2 tp0(ttx, tty), tp1(ttx + tw, tty + th);
-            dl->AddRectFilled(tp0, tp1, IM_COL32(200, 195, 185, 200), trnd);
-            dl->AddRect(tp0, tp1, IM_COL32(180, 175, 165, 100), trnd, 0, 1.0f * zm);
+            dl->AddRectFilled(tp0, tp1, IM_COL32(210, 212, 218, 220), trnd);
+            dl->AddRect(tp0, tp1, IM_COL32(190, 192, 200, 100), trnd, 0, 1.0f * zm);
             float kr = (th * 0.5f) - 3.0f * zm;
             dl->AddCircleFilled(ImVec2(tp0.x + th * 0.5f, tp0.y + th * 0.5f), kr,
                                 IM_COL32(255, 255, 255, 255));
         }
     }
+}
+
+static void DrawSkeuomorphTab(float dpi_scale) {
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 cursor = ImGui::GetCursorScreenPos();
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+
+    ImVec2 p0 = cursor;
+    ImVec2 p1(cursor.x + avail.x, cursor.y + avail.y);
+
+    ImU32 fill   = IM_COL32(237, 241, 244, 255);
+    ImU32 border = IM_COL32(220, 222, 228, 180);
+    float bg_rnd = 8.0f * dpi_scale;
+    dl->AddRectFilled(p0, p1, fill, bg_rnd);
+    dl->AddRect(p0, p1, border, bg_rnd, 0, 1.0f);
+
+    ImGui::InvisibleButton("##skeuo_area", avail);
+    bool area_hovered = ImGui::IsItemHovered();
+
+    float card_sz = 220.0f;
+    float cx = p0.x + (avail.x - card_sz) * 0.5f;
+    float cy = p0.y + (avail.y - card_sz) * 0.5f;
+    ImVec2 cp0(cx, cy);
+    ImVec2 cp1(cx + card_sz, cy + card_sz);
+
+    if (area_hovered && ImGui::IsMouseClicked(0)) {
+        ImVec2 mp = io.MousePos;
+        if (mp.x >= cp0.x && mp.x <= cp1.x &&
+            mp.y >= cp0.y && mp.y <= cp1.y) {
+            g_card_active = !g_card_active;
+            g_selected_widget = WidgetType::SkeuomorphCard;
+        }
+    }
+
+    DrawSkeuomorphCardImpl(dl, cp0, card_sz, g_card_active, 1.0f);
 }
 
 static void DrawLeftPanel(const PanelLayout& zone, float dpi_scale,
@@ -590,6 +594,39 @@ static void DrawLeftPanel(const PanelLayout& zone, float dpi_scale,
 // ===================================================================
 // Widget preview (drawn on the canvas)
 // ===================================================================
+
+static constexpr float kPrevWorldPad = 16.0f;
+
+static ImVec2 GetPreviewWorldSize(WidgetType type, float dpi_scale) {
+    float cw, ch;
+    switch (type) {
+    case WidgetType::Button:              cw = 380; ch = 80;  break;
+    case WidgetType::IconButton:          cw = 250; ch = 50;  break;
+    case WidgetType::IconToggle:          cw = 250; ch = 50;  break;
+    case WidgetType::ColoredButton:       cw = 380; ch = 50;  break;
+    case WidgetType::ToggleSwitch:        cw = 300; ch = 90;  break;
+    case WidgetType::InputText:           cw = 350; ch = 50;  break;
+    case WidgetType::InputTextMultiline:  cw = 350; ch = 130; break;
+    case WidgetType::InputInt:            cw = 300; ch = 50;  break;
+    case WidgetType::InputFloat:          cw = 300; ch = 50;  break;
+    case WidgetType::TagInput:            cw = 350; ch = 50;  break;
+    case WidgetType::SliderFloat:         cw = 350; ch = 50;  break;
+    case WidgetType::SliderInt:           cw = 350; ch = 50;  break;
+    case WidgetType::ProgressBar:         cw = 350; ch = 40;  break;
+    case WidgetType::Spinner:             cw = 300; ch = 40;  break;
+    case WidgetType::Checkbox:            cw = 300; ch = 100; break;
+    case WidgetType::RadioButton:         cw = 400; ch = 50;  break;
+    case WidgetType::Combo:               cw = 350; ch = 50;  break;
+    case WidgetType::ColorEdit4:          cw = 400; ch = 50;  break;
+    case WidgetType::ShimmerText:         cw = 380; ch = 100; break;
+    case WidgetType::GradientBorder:      cw = 380; ch = 100; break;
+    case WidgetType::GlowGradientBorder:  cw = 380; ch = 130; break;
+    case WidgetType::SkeuomorphCard:      cw = 280; ch = 280; break;
+    default:                              cw = 380; ch = 200; break;
+    }
+    float pad2 = kPrevWorldPad * 2.0f;
+    return ImVec2(cw * dpi_scale + pad2, ch * dpi_scale + pad2);
+}
 
 static void DrawWidgetPreview(WidgetType type, float dpi_scale) {
     ImGui::PushID("cvs_preview");
@@ -778,28 +815,21 @@ static void DrawWidgetPreview(WidgetType type, float dpi_scale) {
     }
     case WidgetType::SkeuomorphCard: {
         ImDrawList* dl = ImGui::GetWindowDrawList();
-        float card_sz = 200.0f * dpi_scale;
+        float card_sz = 220.0f * dpi_scale;
+        float card_pad = 24.0f * dpi_scale;
+        float total = card_sz + card_pad * 2.0f;
         float avail_w = ImGui::GetContentRegionAvail().x;
         ImVec2 cursor = ImGui::GetCursorScreenPos();
-        float cx = cursor.x + (avail_w - card_sz) * 0.5f;
-        float cy = cursor.y;
-        ImVec2 cp0(cx, cy), cp1(cx + card_sz, cy + card_sz);
-        float rnd = 16.0f * dpi_scale;
-
-        ImU32 card_fill = IM_COL32(242, 238, 230, 255);
-        dl->AddRectFilled(cp0, cp1, card_fill, rnd);
-        dl->AddRect(cp0, cp1, IM_COL32(220, 215, 205, 180), rnd, 0, 1.0f);
-
-        ImU32 dk = IM_COL32(80, 75, 68, 255);
-        ImFont* font = ImGui::GetFont();
-        float fsz = ImGui::GetFontSize() * 1.3f;
-        const char* label = "Skeuomorph";
-        ImVec2 tsz = font->CalcTextSizeA(fsz, FLT_MAX, 0, label);
-        dl->AddText(font, fsz,
-                    ImVec2(cp0.x + (card_sz - tsz.x) * 0.5f,
-                           cp0.y + (card_sz - tsz.y) * 0.5f),
-                    dk, label);
-        ImGui::Dummy(ImVec2(avail_w, card_sz));
+        float bx = cursor.x + (avail_w - total) * 0.5f;
+        float by = cursor.y;
+        float bg_rnd = 8.0f * dpi_scale;
+        dl->AddRectFilled(ImVec2(bx, by), ImVec2(bx + total, by + total),
+                          IM_COL32(237, 241, 244, 255), bg_rnd);
+        dl->AddRect(ImVec2(bx, by), ImVec2(bx + total, by + total),
+                    IM_COL32(220, 222, 228, 180), bg_rnd, 0, 1.0f);
+        DrawSkeuomorphCardImpl(dl, ImVec2(bx + card_pad, by + card_pad),
+                               card_sz, g_card_active, dpi_scale);
+        ImGui::Dummy(ImVec2(avail_w, total));
         break;
     }
     }
@@ -843,9 +873,9 @@ static void DrawCanvasPanel(const PanelLayout& zone, float dpi_scale) {
     bool canvas_hovered = ImGui::IsItemHovered();
     bool canvas_active  = ImGui::IsItemActive();
 
-    constexpr float kPrevWorldW = 380.0f;
-    constexpr float kPrevWorldH = 300.0f;
-    constexpr float kPrevWorldPad = 16.0f;
+    ImVec2 prevSz = GetPreviewWorldSize(g_selected_widget, dpi_scale);
+    float kPrevWorldW = prevSz.x;
+    float kPrevWorldH = prevSz.y;
 
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left) &&
         g_selected_widget != WidgetType::None) {
@@ -990,9 +1020,9 @@ static void DrawCanvasPanel(const PanelLayout& zone, float dpi_scale) {
                 style.FrameRounding * zm);
 
             ImGui::SetCursorScreenPos(ctl);
-            ImGuiWindowFlags child_flags = io.KeyCtrl
-                ? ImGuiWindowFlags_None
-                : ImGuiWindowFlags_NoScrollWithMouse;
+            ImGuiWindowFlags child_flags = ImGuiWindowFlags_NoScrollbar;
+            if (!io.KeyCtrl)
+                child_flags |= ImGuiWindowFlags_NoScrollWithMouse;
             ImGui::BeginChild("##preview_content", ImVec2(cw, ch),
                               false, child_flags);
             ImGui::SetWindowFontScale(zm);
