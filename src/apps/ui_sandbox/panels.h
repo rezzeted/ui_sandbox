@@ -1843,15 +1843,15 @@ static void DrawBrushedAluminumPanel(ImDrawList* dl, ImVec2 pos,
             else                lum = 185.0f + (192.0f - 185.0f) * ((t - 0.85f) / 0.15f);
 
             float fineNoise = (float)(AlumHash((unsigned int)iy) & 0xFFF) / 4095.0f;
-            lum += (fineNoise - 0.5f) * 5.0f;
+            lum += (fineNoise - 0.5f) * 2.5f;
 
             if ((iy % 5) == 0) {
                 float coarseNoise = (float)(AlumHash((unsigned int)(iy * 7 + 31)) & 0xFFF) / 4095.0f;
-                lum += (coarseNoise - 0.5f) * 8.0f;
+                lum += (coarseNoise - 0.5f) * 4.0f;
             }
 
             if ((AlumHash((unsigned int)(iy * 13 + 97)) & 0x3F) == 0)
-                lum -= 6.0f;
+                lum -= 3.0f;
 
             float insetTop = AlumCornerInset(ly, rnd);
             float insetBot = AlumCornerInset(h - ly - step, rnd);
@@ -1865,13 +1865,13 @@ static void DrawBrushedAluminumPanel(ImDrawList* dl, ImVec2 pos,
             float lineY0 = p0.y + ly;
             float lineY1 = lineY0 + step;
 
-            // Number of segments: 2-6, deterministic per line
-            int nSeg = 2 + (int)(AlumHash((unsigned int)(iy * 3 + 5)) % 5);
+            // Number of segments: 4-12, deterministic per line
+            int nSeg = 4 + (int)(AlumHash((unsigned int)(iy * 3 + 5)) % 9);
             int nPts = nSeg + 1;
 
             // Build control points: x-positions and luminance offsets
-            float ptX[8];
-            float ptLum[8];
+            float ptX[14];
+            float ptLum[14];
             ptX[0] = lx0;
             ptX[nPts - 1] = lx1;
 
@@ -1884,10 +1884,10 @@ static void DrawBrushedAluminumPanel(ImDrawList* dl, ImVec2 pos,
                 if (ptX[k] >= lx1 - 1.0f) ptX[k] = lx1 - 1.0f;
             }
 
-            // Brightness offset per point: +-15% of base lum
+            // Brightness offset per point: +-7.5% of base lum
             for (int k = 0; k < nPts; ++k) {
                 float nf = (float)((int)(AlumHash((unsigned int)(iy * 23 + k * 71)) & 0xFFF) - 2048) / 2048.0f;
-                ptLum[k] = lum * (1.0f + nf * 0.15f);
+                ptLum[k] = lum * (1.0f + nf * 0.075f);
             }
 
             // Draw gradient sub-segments
@@ -1909,6 +1909,65 @@ static void DrawBrushedAluminumPanel(ImDrawList* dl, ImVec2 pos,
                     ImVec2(x0, lineY0), ImVec2(x1, lineY1),
                     colL, colR, colR, colL);
             }
+        }
+    }
+
+    // --- Second pass: sparse overlay lines (different step, breaks regularity) ---
+    {
+        float step2 = std::max(3.0f, 3.0f * zm);
+
+        for (float ly = 0.0f; ly < h; ly += step2) {
+            int iy2 = (int)(ly / step2);
+
+            // Skip ~40% of lines for irregularity
+            if ((AlumHash((unsigned int)(iy2 * 37 + 199)) & 7) < 3) continue;
+
+            float t = ly / h;
+
+            // Reuse same reflection curve for base lum
+            float lum;
+            if      (t < 0.15f) lum = 230.0f - (230.0f - 218.0f) * (t / 0.15f);
+            else if (t < 0.25f) lum = 218.0f + (238.0f - 218.0f) * ((t - 0.15f) / 0.10f);
+            else if (t < 0.35f) lum = 238.0f - (238.0f - 235.0f) * ((t - 0.25f) / 0.10f);
+            else if (t < 0.55f) lum = 235.0f - (235.0f - 195.0f) * ((t - 0.35f) / 0.20f);
+            else if (t < 0.85f) lum = 195.0f - (195.0f - 185.0f) * ((t - 0.55f) / 0.30f);
+            else                lum = 185.0f + (192.0f - 185.0f) * ((t - 0.85f) / 0.15f);
+
+            // Per-line variation for the overlay
+            float n = (float)(AlumHash((unsigned int)(iy2 * 53 + 7)) & 0xFFF) / 4095.0f;
+            lum += (n - 0.5f) * 7.0f;
+
+            int r = std::min(255, std::max(0, (int)(lum - 2.0f)));
+            int g = std::min(255, std::max(0, (int)(lum)));
+            int b = std::min(255, std::max(0, (int)(lum + 3.0f)));
+
+            float insetTop = AlumCornerInset(ly, rnd);
+            float insetBot = AlumCornerInset(h - ly - step2, rnd);
+            float inset = std::max(insetTop, insetBot);
+
+            float lx0 = p0.x + inset;
+            float lx1 = p1.x - inset;
+            if (lx1 <= lx0) continue;
+
+            float lineW = lx1 - lx0;
+            if (lineW <= 0.0f) continue;
+
+            // Random length: 20-80% of full width
+            float pctLen = 0.20f + 0.60f * ((float)(AlumHash((unsigned int)(iy2 * 11 + 41)) & 0xFFF) / 4095.0f);
+            float segW = lineW * pctLen;
+
+            // Random offset within remaining space
+            float maxOff = lineW - segW;
+            float off = maxOff * ((float)(AlumHash((unsigned int)(iy2 * 29 + 83)) & 0xFFF) / 4095.0f);
+
+            float sx0 = lx0 + off;
+            float sx1 = sx0 + segW;
+
+            int alpha = 60 + (int)(AlumHash((unsigned int)(iy2 * 43 + 61)) % 50);
+
+            dl->AddLine(ImVec2(sx0, p0.y + ly + step2 * 0.5f),
+                        ImVec2(sx1, p0.y + ly + step2 * 0.5f),
+                        IM_COL32(r, g, b, alpha), std::max(0.5f, 0.5f * zm));
         }
     }
 
