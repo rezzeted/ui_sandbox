@@ -79,12 +79,11 @@ int main() {
 
         float status_h = panels.status_bar ? 22.0f * dpi_scale : 0.0f;
 
-        auto layout = CalculateLayout(vp, gap, 0.0f, status_h, splitters, panels);
-        HandleSplitters(layout, gap, vp, 0.0f, status_h, splitters, panels.bottom_collapsed);
+        auto layout = CalculateLayout(vp, gap, 0.0f, status_h, splitters);
+        HandleSplitters(layout, gap, vp, 0.0f, status_h, splitters);
 
         DrawLeftPanel(layout.left, dpi_scale, panels);
-        DrawCanvasPanel(layout.canvas);
-        DrawBottomPanel(layout.bottom, dpi_scale, panels);
+        DrawCanvasPanel(layout.canvas, dpi_scale);
         DrawSplitterIndicators(layout, gap, splitters);
 
         DrUI::ToastAnchor anchor{layout.canvas.pos, layout.canvas.size};

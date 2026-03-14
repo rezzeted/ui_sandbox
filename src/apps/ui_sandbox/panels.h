@@ -10,6 +10,23 @@
 #include <vector>
 
 // ===================================================================
+// Widget type selection (for canvas preview)
+// ===================================================================
+
+enum class WidgetType {
+    None = 0,
+    Button, IconButton, IconToggle, ColoredButton,
+    ToggleSwitch, InputText, InputTextMultiline,
+    InputInt, InputFloat, TagInput,
+    SliderFloat, SliderInt, ProgressBar, Spinner,
+    Checkbox, RadioButton, Combo, ColorEdit4,
+    ShimmerText, GradientBorder, GlowGradientBorder,
+    SkeuomorphCard,
+};
+
+static WidgetType g_selected_widget = WidgetType::None;
+
+// ===================================================================
 // Main menu bar
 // ===================================================================
 
@@ -35,12 +52,7 @@ static void DrawMainMenuBar(PanelVisibility& panels) {
     }
 
     if (ImGui::BeginMenu(ICON_FA_EYE "  \xd0\x92\xd0\xb8\xd0\xb4")) {
-        ImGui::MenuItem(ICON_FA_FOLDER " \xd0\x9e\xd0\xb1\xd0\xbe\xd0\xb7\xd1\x80\xd0\xb5\xd0\xb2\xd0\xb0\xd1\x82\xd0\xb5\xd0\xbb\xd1\x8c", nullptr, &panels.tab_explorer);
         ImGui::MenuItem(ICON_FA_COG " \xd0\x92\xd0\xb8\xd0\xb4\xd0\xb6\xd0\xb5\xd1\x82\xd1\x8b", nullptr, &panels.tab_widgets);
-        ImGui::Separator();
-        ImGui::MenuItem(ICON_FA_PLAY " \xd0\xa3\xd0\xbf\xd1\x80\xd0\xb0\xd0\xb2\xd0\xbb\xd0\xb5\xd0\xbd\xd0\xb8\xd0\xb5", nullptr, &panels.tab_controls);
-        ImGui::MenuItem(ICON_FA_BARS " \xd0\x9b\xd0\xbe\xd0\xb3", nullptr, &panels.tab_log);
-        ImGui::MenuItem(ICON_FA_SITEMAP " \xd0\xa1\xd0\xb2\xd0\xbe\xd0\xb9\xd1\x81\xd1\x82\xd0\xb2\xd0\xb0", nullptr, &panels.tab_properties);
         ImGui::Separator();
         ImGui::MenuItem(ICON_FA_BARS " \xd0\xa1\xd1\x82\xd1\x80\xd0\xbe\xd0\xba\xd0\xb0 \xd1\x81\xd0\xbe\xd1\x81\xd1\x82\xd0\xbe\xd1\x8f\xd0\xbd\xd0\xb8\xd1\x8f", nullptr, &panels.status_bar);
         ImGui::Separator();
@@ -76,70 +88,8 @@ static void DrawMainMenuBar(PanelVisibility& panels) {
 }
 
 // ===================================================================
-// Left panel — tabs: Explorer + Widgets showcase
+// Left panel — tabs: Widgets showcase + Skeuomorph
 // ===================================================================
-
-static void DrawExplorerTab() {
-    static int selected = -1;
-    static char search_buf[128] = "";
-
-    struct TreeNode { const char* icon; const char* name; int depth; };
-    static const TreeNode tree[] = {
-        { ICON_FA_FOLDER,    "src/",             0 },
-        { ICON_FA_FOLDER,    "apps/",            1 },
-        { ICON_FA_FILE_CODE, "main.cpp",         2 },
-        { ICON_FA_FILE_CODE, "sandbox_theme.h",  2 },
-        { ICON_FA_FILE_CODE, "ui_helpers.h",     2 },
-        { ICON_FA_FOLDER,    "libs/",            1 },
-        { ICON_FA_FOLDER,    "thirdparty/",      0 },
-        { ICON_FA_FOLDER,    "imgui/",           1 },
-        { ICON_FA_FOLDER,    "glfw/",            1 },
-        { ICON_FA_FILE,      "CMakeLists.txt",   0 },
-        { ICON_FA_FILE,      "APPROACH.md",      0 },
-    };
-    constexpr int tree_count = sizeof(tree) / sizeof(tree[0]);
-
-    DrUI::SearchInput("##explorer_search", search_buf, sizeof(search_buf));
-    ImGui::Spacing();
-
-    ImGui::BeginChild("##file_list", ImVec2(0, 0), false);
-
-    const float indent_w = 16.0f;
-    float line_h = ImGui::GetTextLineHeightWithSpacing();
-
-    for (int i = 0; i < tree_count; ++i) {
-        const auto& n = tree[i];
-
-        if (search_buf[0] != '\0') {
-            bool match = false;
-            for (const char *a = n.name, *b = search_buf; *b; ) {
-                if (*a == '\0') break;
-                if ((*a | 32) == (*b | 32)) { ++a; ++b; if (!*b) match = true; }
-                else { ++a; b = search_buf; }
-            }
-            if (!match) continue;
-        }
-
-        ImVec2 cpos = ImGui::GetCursorScreenPos();
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        for (int d = 0; d < n.depth; ++d) {
-            float lx = cpos.x + d * indent_w + indent_w * 0.5f;
-            dl->AddLine(ImVec2(lx, cpos.y),
-                        ImVec2(lx, cpos.y + line_h),
-                        ImGui::GetColorU32(ImGuiCol_Text, 0.08f));
-        }
-
-        if (n.depth > 0)
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + n.depth * indent_w);
-
-        char label[128];
-        std::snprintf(label, sizeof(label), "%s %s", n.icon, n.name);
-        if (ImGui::Selectable(label, selected == i))
-            selected = i;
-    }
-
-    ImGui::EndChild();
-}
 
 static void DrawWidgetsTab(float dpi_scale) {
     ImGui::TextDisabled(ICON_FA_COG " \xd0\x92\xd0\xb8\xd1\x82\xd1\x80\xd0\xb8\xd0\xbd\xd0\xb0 \xd0\xb2\xd0\xb8\xd0\xb4\xd0\xb6\xd0\xb5\xd1\x82\xd0\xbe\xd0\xb2");
@@ -147,61 +97,81 @@ static void DrawWidgetsTab(float dpi_scale) {
 
     ImGui::BeginChild("##widgets_scroll", ImVec2(0, 0), false);
 
+    #define W_SEL(t) if (ImGui::IsItemClicked()) g_selected_widget = WidgetType::t
+
     DrUI::CardBegin(ICON_FA_BOLT " \xd0\x9a\xd0\xbd\xd0\xbe\xd0\xbf\xd0\xba\xd0\xb8 \xd0\xb8 \xd0\xb2\xd0\xb2\xd0\xbe\xd0\xb4", false);
     {
         if (DrUI::Button(ICON_FA_PLUS " \xd0\x94\xd0\xbe\xd0\xb1\xd0\xb0\xd0\xb2\xd0\xb8\xd1\x82\xd1\x8c"))  {}
+        W_SEL(Button);
         ImGui::SameLine();
         if (DrUI::Button(ICON_FA_TRASH " \xd0\xa3\xd0\xb4\xd0\xb0\xd0\xbb\xd0\xb8\xd1\x82\xd1\x8c"))  {}
+        W_SEL(Button);
         ImGui::SameLine();
         if (DrUI::Button(ICON_FA_SAVE " \xd0\xa1\xd0\xbe\xd1\x85\xd1\x80\xd0\xb0\xd0\xbd\xd0\xb8\xd1\x82\xd1\x8c"))  {}
+        W_SEL(Button);
 
         ImGui::Spacing();
         if (DrUI::Button(ICON_FA_PLAY, "\xd0\x97\xd0\xb0\xd0\xbf\xd1\x83\xd1\x81\xd0\xba"))  {}
+        W_SEL(Button);
         ImGui::SameLine();
         if (DrUI::Button(ICON_FA_STOP, "\xd0\xa1\xd1\x82\xd0\xbe\xd0\xbf"))  {}
+        W_SEL(Button);
 
         ImGui::Spacing();
         if (DrUI::IconButton(ICON_FA_UNDO))  {}
+        W_SEL(IconButton);
         ImGui::SameLine();
         if (DrUI::IconButton(ICON_FA_REDO))  {}
+        W_SEL(IconButton);
         DrUI::Badge(3);
         ImGui::SameLine();
         if (DrUI::IconButton(ICON_FA_SEARCH))  {}
+        W_SEL(IconButton);
         ImGui::SameLine();
         if (DrUI::IconButton(ICON_FA_COG))  {}
+        W_SEL(IconButton);
         DrUI::Badge(12);
 
         ImGui::Spacing();
         static bool tog_grid = true, tog_snap = false, tog_eye = true;
         DrUI::IconToggle(ICON_FA_DICE, &tog_grid);
+        W_SEL(IconToggle);
         ImGui::SameLine();
         DrUI::IconToggle(ICON_FA_ROUTE, &tog_snap);
+        W_SEL(IconToggle);
         ImGui::SameLine();
         DrUI::IconToggle(ICON_FA_EYE, &tog_eye);
+        W_SEL(IconToggle);
 
         ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_Button, DrUI::Colors::Success);
         DrUI::Button(ICON_FA_CHECK " OK");
+        W_SEL(ColoredButton);
         ImGui::PopStyleColor();
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_Button, DrUI::Colors::Warning);
         DrUI::Button(ICON_FA_WARNING " \xd0\x92\xd0\xbd\xd0\xb8\xd0\xbc\xd0\xb0\xd0\xbd\xd0\xb8\xd0\xb5");
+        W_SEL(ColoredButton);
         ImGui::PopStyleColor();
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_Button, DrUI::Colors::Error);
         DrUI::Button(ICON_FA_TIMES " \xd0\x9e\xd1\x88\xd0\xb8\xd0\xb1\xd0\xba\xd0\xb0");
+        W_SEL(ColoredButton);
         ImGui::PopStyleColor();
 
         DrUI::GradientSeparator();
 
         static bool dark_mode = true, autosave = false, notif = true;
         DrUI::ToggleSwitch("dark_mode", &dark_mode);
+        W_SEL(ToggleSwitch);
         ImGui::SameLine();
         ImGui::Text(ICON_FA_EYE " \xd0\xa2\xd1\x91\xd0\xbc\xd0\xbd\xd0\xb0\xd1\x8f \xd1\x82\xd0\xb5\xd0\xbc\xd0\xb0");
         DrUI::ToggleSwitch("autosave", &autosave);
+        W_SEL(ToggleSwitch);
         ImGui::SameLine();
         ImGui::Text(ICON_FA_SAVE " \xd0\x90\xd0\xb2\xd1\x82\xd0\xbe\xd1\x81\xd0\xbe\xd1\x85\xd1\x80\xd0\xb0\xd0\xbd\xd0\xb5\xd0\xbd\xd0\xb8\xd0\xb5");
         DrUI::ToggleSwitch("notif", &notif);
+        W_SEL(ToggleSwitch);
         ImGui::SameLine();
         ImGui::Text(ICON_FA_BOLT " \xd0\xa3\xd0\xb2\xd0\xb5\xd0\xb4\xd0\xbe\xd0\xbc\xd0\xbb\xd0\xb5\xd0\xbd\xd0\xb8\xd1\x8f");
 
@@ -210,6 +180,7 @@ static void DrawWidgetsTab(float dpi_scale) {
         static char text_buf[256] = "Hello, UI Sandbox!";
         ImGui::SetNextItemWidth(-1);
         ImGui::InputText("##text", text_buf, sizeof(text_buf));
+        W_SEL(InputText);
 
         static char multi_buf[1024] =
             "\xd0\x9c\xd0\xbd\xd0\xbe\xd0\xb3\xd0\xbe\xd1\x81\xd1\x82\xd1\x80"
@@ -217,13 +188,16 @@ static void DrawWidgetsTab(float dpi_scale) {
             "\xd1\x81\xd1\x82";
         ImGui::InputTextMultiline("##multi", multi_buf, sizeof(multi_buf),
                                   ImVec2(-1, 60.0f * dpi_scale));
+        W_SEL(InputTextMultiline);
 
         static int int_val = 42;
         DrUI::InputInt("Int", &int_val, 1, 10, 80.0f * dpi_scale);
+        W_SEL(InputInt);
 
         static float float_val = 3.14f;
         DrUI::InputFloat("Float", &float_val, 0.1f, 1.0f, "%.2f",
                          80.0f * dpi_scale);
+        W_SEL(InputFloat);
 
         DrUI::GradientSeparator();
 
@@ -231,6 +205,7 @@ static void DrawWidgetsTab(float dpi_scale) {
         static char tag_buf[64] = "";
         ImGui::TextDisabled(ICON_FA_BOLT " Tag Input");
         DrUI::TagInput("##tags", demo_tags, tag_buf, sizeof(tag_buf));
+        W_SEL(TagInput);
     }
     DrUI::CardEnd();
 
@@ -239,16 +214,20 @@ static void DrawWidgetsTab(float dpi_scale) {
         static float slider1 = 0.5f;
         DrUI::SliderFloat("\xd0\x97\xd0\xbd\xd0\xb0\xd1\x87\xd0\xb5\xd0\xbd\xd0\xb8\xd0\xb5",
                           &slider1, 0.0f, 1.0f);
+        W_SEL(SliderFloat);
 
         static int slider_int = 50;
         DrUI::SliderInt("\xd0\xa8\xd0\xb0\xd0\xb3\xd0\xb8",
                         &slider_int, 0, 100);
+        W_SEL(SliderInt);
 
         static float progress = 0.65f;
         DrUI::ProgressBar(progress, ImVec2(-1, 0), "65%");
+        W_SEL(ProgressBar);
 
         ImGui::Spacing();
         DrUI::Spinner("##spin1", 8.0f, 2.5f);
+        W_SEL(Spinner);
         ImGui::SameLine();
         ImGui::TextDisabled("\xd0\x97\xd0\xb0\xd0\xb3\xd1\x80\xd1\x83\xd0\xb7\xd0\xba\xd0\xb0...");
 
@@ -256,39 +235,52 @@ static void DrawWidgetsTab(float dpi_scale) {
 
         static bool chk1 = true, chk2 = false, chk3 = true;
         ImGui::Checkbox("\xd0\x9e\xd0\xbf\xd1\x86\xd0\xb8\xd1\x8f A", &chk1);
+        W_SEL(Checkbox);
         ImGui::Checkbox("\xd0\x9e\xd0\xbf\xd1\x86\xd0\xb8\xd1\x8f B", &chk2);
+        W_SEL(Checkbox);
         ImGui::Checkbox("\xd0\x9e\xd0\xbf\xd1\x86\xd0\xb8\xd1\x8f C", &chk3);
+        W_SEL(Checkbox);
 
         static int radio = 0;
         ImGui::RadioButton("\xd0\xa0\xd0\xb5\xd0\xb6\xd0\xb8\xd0\xbc 1", &radio, 0);
+        W_SEL(RadioButton);
         ImGui::SameLine();
         ImGui::RadioButton("\xd0\xa0\xd0\xb5\xd0\xb6\xd0\xb8\xd0\xbc 2", &radio, 1);
+        W_SEL(RadioButton);
         ImGui::SameLine();
         ImGui::RadioButton("\xd0\xa0\xd0\xb5\xd0\xb6\xd0\xb8\xd0\xbc 3", &radio, 2);
+        W_SEL(RadioButton);
 
         static int combo_sel = 0;
         const char* combo_items[] = {"Sequence", "Silhouette", "Custom"};
         ImGui::SetNextItemWidth(150.0f * dpi_scale);
         ImGui::Combo("\xd0\xa2\xd0\xb8\xd0\xbf", &combo_sel, combo_items, 3);
+        W_SEL(Combo);
 
         DrUI::GradientSeparator();
 
         static ImVec4 col1(0.37f, 0.55f, 0.95f, 1.0f);
         static ImVec4 col2(0.63f, 0.45f, 0.98f, 1.0f);
         ImGui::ColorEdit4("Accent 1", &col1.x);
+        W_SEL(ColorEdit4);
         ImGui::ColorEdit4("Accent 2", &col2.x);
+        W_SEL(ColorEdit4);
     }
     DrUI::CardEnd();
 
     DrUI::CardBegin(ICON_FA_BOLT " Shimmer Text", false);
     {
         DrUI::ShimmerText("Hello, Shimmer World!");
+        W_SEL(ShimmerText);
         ImGui::Spacing();
         DrUI::ShimmerText("\xd0\x9f\xd0\xb5\xd1\x80\xd0\xb5\xd0\xbb\xd0\xb8\xd0\xb2\xd0\xb0\xd1\x8e\xd1\x89\xd0\xb8\xd0\xb9\xd1\x81\xd1\x8f \xd1\x82\xd0\xb5\xd0\xba\xd1\x81\xd1\x82 \xd0\xbd\xd0\xb0 \xd1\x80\xd1\x83\xd1\x81\xd1\x81\xd0\xba\xd0\xbe\xd0\xbc");
+        W_SEL(ShimmerText);
         ImGui::Spacing();
         DrUI::ShimmerText(ICON_FA_COG " AI is thinking...", 1.2f, 0.25f);
+        W_SEL(ShimmerText);
         ImGui::Spacing();
         DrUI::ShimmerText("Slow shimmer demo", 4.0f, 0.5f);
+        W_SEL(ShimmerText);
     }
     DrUI::CardEnd();
 
@@ -309,6 +301,7 @@ static void DrawWidgetsTab(float dpi_scale) {
             ImVec2 rp = ImGui::GetCursorScreenPos();
             float rh = 60.0f * dpi_scale;
             ImGui::Dummy(ImVec2(avail_w, rh));
+            W_SEL(GradientBorder);
             DrUI::GradientBorder(wdl, rp, ImVec2(avail_w, rh),
                                  border_colors, 4, t, 0.2f, 2.0f, 10.0f);
         }
@@ -322,11 +315,14 @@ static void DrawWidgetsTab(float dpi_scale) {
             rp.y += pad;
             float rh = 60.0f * dpi_scale;
             ImGui::Dummy(ImVec2(avail_w, rh + pad * 2.0f));
+            W_SEL(GlowGradientBorder);
             DrUI::GlowGradientBorder(wdl, rp, ImVec2(avail_w - pad * 2.0f, rh),
                                      border_colors, 4, t, 0.2f, 2.0f, 10.0f);
         }
     }
     DrUI::CardEnd();
+
+    #undef W_SEL
 
     ImGui::EndChild();
 }
@@ -365,8 +361,10 @@ static void DrawSkeuomorphTab(float dpi_scale) {
     if (area_hovered && ImGui::IsMouseClicked(0)) {
         ImVec2 mp = io.MousePos;
         if (mp.x >= cp0.x && mp.x <= cp1.x &&
-            mp.y >= cp0.y && mp.y <= cp1.y)
+            mp.y >= cp0.y && mp.y <= cp1.y) {
             g_card_active = !g_card_active;
+            g_selected_widget = WidgetType::SkeuomorphCard;
+        }
     }
 
     if (g_card_active) {
@@ -575,10 +573,6 @@ static void DrawLeftPanel(const PanelLayout& zone, float dpi_scale,
     ImGui::Begin("##LeftPanel", nullptr, kPanelFlags);
 
     if (ImGui::BeginTabBar("##LeftTabs", ImGuiTabBarFlags_DrawSelectedOverline)) {
-        if (panels.tab_explorer && ImGui::BeginTabItem(ICON_FA_FOLDER " \xd0\x9e\xd0\xb1\xd0\xb7\xd0\xbe\xd1\x80", &panels.tab_explorer)) {
-            DrawExplorerTab();
-            ImGui::EndTabItem();
-        }
         if (panels.tab_widgets && ImGui::BeginTabItem(ICON_FA_COG " \xd0\x92\xd0\xb8\xd0\xb4\xd0\xb6\xd0\xb5\xd1\x82\xd1\x8b", &panels.tab_widgets)) {
             DrawWidgetsTab(dpi_scale);
             ImGui::EndTabItem();
@@ -594,6 +588,225 @@ static void DrawLeftPanel(const PanelLayout& zone, float dpi_scale,
 }
 
 // ===================================================================
+// Widget preview (drawn on the canvas)
+// ===================================================================
+
+static void DrawWidgetPreview(WidgetType type, float dpi_scale) {
+    ImGui::PushID("cvs_preview");
+    switch (type) {
+    case WidgetType::None: break;
+
+    case WidgetType::Button: {
+        if (DrUI::Button(ICON_FA_PLUS " \xd0\x94\xd0\xbe\xd0\xb1\xd0\xb0\xd0\xb2\xd0\xb8\xd1\x82\xd1\x8c")) {}
+        ImGui::SameLine();
+        if (DrUI::Button(ICON_FA_TRASH " \xd0\xa3\xd0\xb4\xd0\xb0\xd0\xbb\xd0\xb8\xd1\x82\xd1\x8c")) {}
+        ImGui::SameLine();
+        if (DrUI::Button(ICON_FA_SAVE " \xd0\xa1\xd0\xbe\xd1\x85\xd1\x80\xd0\xb0\xd0\xbd\xd0\xb8\xd1\x82\xd1\x8c")) {}
+        ImGui::Spacing();
+        if (DrUI::Button(ICON_FA_PLAY, "\xd0\x97\xd0\xb0\xd0\xbf\xd1\x83\xd1\x81\xd0\xba")) {}
+        ImGui::SameLine();
+        if (DrUI::Button(ICON_FA_STOP, "\xd0\xa1\xd1\x82\xd0\xbe\xd0\xbf")) {}
+        break;
+    }
+    case WidgetType::IconButton: {
+        if (DrUI::IconButton(ICON_FA_UNDO)) {}
+        ImGui::SameLine();
+        if (DrUI::IconButton(ICON_FA_REDO)) {}
+        ImGui::SameLine();
+        if (DrUI::IconButton(ICON_FA_SEARCH)) {}
+        ImGui::SameLine();
+        if (DrUI::IconButton(ICON_FA_COG)) {}
+        break;
+    }
+    case WidgetType::IconToggle: {
+        static bool t1 = true, t2 = false, t3 = true;
+        DrUI::IconToggle(ICON_FA_DICE, &t1);
+        ImGui::SameLine();
+        DrUI::IconToggle(ICON_FA_ROUTE, &t2);
+        ImGui::SameLine();
+        DrUI::IconToggle(ICON_FA_EYE, &t3);
+        break;
+    }
+    case WidgetType::ColoredButton: {
+        ImGui::PushStyleColor(ImGuiCol_Button, DrUI::Colors::Success);
+        DrUI::Button(ICON_FA_CHECK " OK");
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Button, DrUI::Colors::Warning);
+        DrUI::Button(ICON_FA_WARNING " \xd0\x92\xd0\xbd\xd0\xb8\xd0\xbc\xd0\xb0\xd0\xbd\xd0\xb8\xd0\xb5");
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Button, DrUI::Colors::Error);
+        DrUI::Button(ICON_FA_TIMES " \xd0\x9e\xd1\x88\xd0\xb8\xd0\xb1\xd0\xba\xd0\xb0");
+        ImGui::PopStyleColor();
+        break;
+    }
+    case WidgetType::ToggleSwitch: {
+        static bool s1 = true, s2 = false, s3 = true;
+        DrUI::ToggleSwitch("##ps1", &s1);
+        ImGui::SameLine();
+        ImGui::Text(ICON_FA_EYE " \xd0\x9e\xd0\xbf\xd1\x86\xd0\xb8\xd1\x8f 1");
+        DrUI::ToggleSwitch("##ps2", &s2);
+        ImGui::SameLine();
+        ImGui::Text(ICON_FA_SAVE " \xd0\x9e\xd0\xbf\xd1\x86\xd0\xb8\xd1\x8f 2");
+        DrUI::ToggleSwitch("##ps3", &s3);
+        ImGui::SameLine();
+        ImGui::Text(ICON_FA_BOLT " \xd0\x9e\xd0\xbf\xd1\x86\xd0\xb8\xd1\x8f 3");
+        break;
+    }
+    case WidgetType::InputText: {
+        static char buf[256] = "Preview text";
+        ImGui::SetNextItemWidth(-1);
+        ImGui::InputText("##ptext", buf, sizeof(buf));
+        break;
+    }
+    case WidgetType::InputTextMultiline: {
+        static char buf[1024] =
+            "\xd0\x9c\xd0\xbd\xd0\xbe\xd0\xb3\xd0\xbe\xd1\x81\xd1\x82\xd1\x80"
+            "\xd0\xbe\xd1\x87\xd0\xbd\xd1\x8b\xd0\xb9\n\xd1\x82\xd0\xb5\xd0\xba"
+            "\xd1\x81\xd1\x82";
+        ImGui::InputTextMultiline("##pmulti", buf, sizeof(buf),
+                                  ImVec2(-1, 80.0f * dpi_scale));
+        break;
+    }
+    case WidgetType::InputInt: {
+        static int val = 42;
+        DrUI::InputInt("Int", &val, 1, 10, 120.0f * dpi_scale);
+        break;
+    }
+    case WidgetType::InputFloat: {
+        static float val = 3.14f;
+        DrUI::InputFloat("Float", &val, 0.1f, 1.0f, "%.2f",
+                         120.0f * dpi_scale);
+        break;
+    }
+    case WidgetType::TagInput: {
+        static std::vector<std::string> tags = {"tag1", "tag2"};
+        static char buf[64] = "";
+        DrUI::TagInput("##ptags", tags, buf, sizeof(buf));
+        break;
+    }
+    case WidgetType::SliderFloat: {
+        static float val = 0.5f;
+        DrUI::SliderFloat("\xd0\x97\xd0\xbd\xd0\xb0\xd1\x87\xd0\xb5\xd0\xbd\xd0\xb8\xd0\xb5",
+                          &val, 0.0f, 1.0f);
+        break;
+    }
+    case WidgetType::SliderInt: {
+        static int val = 50;
+        DrUI::SliderInt("\xd0\xa8\xd0\xb0\xd0\xb3\xd0\xb8", &val, 0, 100);
+        break;
+    }
+    case WidgetType::ProgressBar: {
+        static float val = 0.65f;
+        DrUI::ProgressBar(val, ImVec2(-1, 0), "65%");
+        break;
+    }
+    case WidgetType::Spinner: {
+        DrUI::Spinner("##pspin", 8.0f, 2.5f);
+        ImGui::SameLine();
+        ImGui::TextDisabled("\xd0\x97\xd0\xb0\xd0\xb3\xd1\x80\xd1\x83\xd0\xb7\xd0\xba\xd0\xb0...");
+        break;
+    }
+    case WidgetType::Checkbox: {
+        static bool c1 = true, c2 = false, c3 = true;
+        ImGui::Checkbox("\xd0\x9e\xd0\xbf\xd1\x86\xd0\xb8\xd1\x8f A", &c1);
+        ImGui::Checkbox("\xd0\x9e\xd0\xbf\xd1\x86\xd0\xb8\xd1\x8f B", &c2);
+        ImGui::Checkbox("\xd0\x9e\xd0\xbf\xd1\x86\xd0\xb8\xd1\x8f C", &c3);
+        break;
+    }
+    case WidgetType::RadioButton: {
+        static int r = 0;
+        ImGui::RadioButton("\xd0\xa0\xd0\xb5\xd0\xb6\xd0\xb8\xd0\xbc 1", &r, 0);
+        ImGui::SameLine();
+        ImGui::RadioButton("\xd0\xa0\xd0\xb5\xd0\xb6\xd0\xb8\xd0\xbc 2", &r, 1);
+        ImGui::SameLine();
+        ImGui::RadioButton("\xd0\xa0\xd0\xb5\xd0\xb6\xd0\xb8\xd0\xbc 3", &r, 2);
+        break;
+    }
+    case WidgetType::Combo: {
+        static int sel = 0;
+        const char* items[] = {"Sequence", "Silhouette", "Custom"};
+        ImGui::SetNextItemWidth(200.0f * dpi_scale);
+        ImGui::Combo("\xd0\xa2\xd0\xb8\xd0\xbf", &sel, items, 3);
+        break;
+    }
+    case WidgetType::ColorEdit4: {
+        static ImVec4 col(0.37f, 0.55f, 0.95f, 1.0f);
+        ImGui::ColorEdit4("Color", &col.x);
+        break;
+    }
+    case WidgetType::ShimmerText: {
+        DrUI::ShimmerText("Hello, Shimmer World!");
+        ImGui::Spacing();
+        DrUI::ShimmerText("\xd0\x9f\xd0\xb5\xd1\x80\xd0\xb5\xd0\xbb\xd0\xb8\xd0\xb2\xd0\xb0\xd1\x8e\xd1\x89\xd0\xb8\xd0\xb9\xd1\x81\xd1\x8f \xd1\x82\xd0\xb5\xd0\xba\xd1\x81\xd1\x82");
+        ImGui::Spacing();
+        DrUI::ShimmerText(ICON_FA_COG " AI is thinking...", 1.2f, 0.25f);
+        break;
+    }
+    case WidgetType::GradientBorder: {
+        static const ImVec4 colors[] = {
+            {0.90f, 0.30f, 0.50f, 1.0f}, {0.30f, 0.80f, 0.95f, 1.0f},
+            {0.95f, 0.75f, 0.20f, 1.0f}, {0.40f, 0.90f, 0.50f, 1.0f},
+        };
+        float t = (float)ImGui::GetTime();
+        ImDrawList* wdl = ImGui::GetWindowDrawList();
+        float w = ImGui::GetContentRegionAvail().x;
+        ImVec2 rp = ImGui::GetCursorScreenPos();
+        float rh = 60.0f * dpi_scale;
+        ImGui::Dummy(ImVec2(w, rh));
+        DrUI::GradientBorder(wdl, rp, ImVec2(w, rh),
+                             colors, 4, t, 0.2f, 2.0f, 10.0f);
+        break;
+    }
+    case WidgetType::GlowGradientBorder: {
+        static const ImVec4 colors[] = {
+            {0.90f, 0.30f, 0.50f, 1.0f}, {0.30f, 0.80f, 0.95f, 1.0f},
+            {0.95f, 0.75f, 0.20f, 1.0f}, {0.40f, 0.90f, 0.50f, 1.0f},
+        };
+        float t = (float)ImGui::GetTime();
+        ImDrawList* wdl = ImGui::GetWindowDrawList();
+        float w = ImGui::GetContentRegionAvail().x;
+        float pad = 14.0f;
+        ImVec2 rp = ImGui::GetCursorScreenPos();
+        rp.x += pad; rp.y += pad;
+        float rh = 60.0f * dpi_scale;
+        ImGui::Dummy(ImVec2(w, rh + pad * 2.0f));
+        DrUI::GlowGradientBorder(wdl, rp, ImVec2(w - pad * 2.0f, rh),
+                                 colors, 4, t, 0.2f, 2.0f, 10.0f);
+        break;
+    }
+    case WidgetType::SkeuomorphCard: {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float card_sz = 200.0f * dpi_scale;
+        float avail_w = ImGui::GetContentRegionAvail().x;
+        ImVec2 cursor = ImGui::GetCursorScreenPos();
+        float cx = cursor.x + (avail_w - card_sz) * 0.5f;
+        float cy = cursor.y;
+        ImVec2 cp0(cx, cy), cp1(cx + card_sz, cy + card_sz);
+        float rnd = 16.0f * dpi_scale;
+
+        ImU32 card_fill = IM_COL32(242, 238, 230, 255);
+        dl->AddRectFilled(cp0, cp1, card_fill, rnd);
+        dl->AddRect(cp0, cp1, IM_COL32(220, 215, 205, 180), rnd, 0, 1.0f);
+
+        ImU32 dk = IM_COL32(80, 75, 68, 255);
+        ImFont* font = ImGui::GetFont();
+        float fsz = ImGui::GetFontSize() * 1.3f;
+        const char* label = "Skeuomorph";
+        ImVec2 tsz = font->CalcTextSizeA(fsz, FLT_MAX, 0, label);
+        dl->AddText(font, fsz,
+                    ImVec2(cp0.x + (card_sz - tsz.x) * 0.5f,
+                           cp0.y + (card_sz - tsz.y) * 0.5f),
+                    dk, label);
+        ImGui::Dummy(ImVec2(avail_w, card_sz));
+        break;
+    }
+    }
+    ImGui::PopID();
+}
+
+// ===================================================================
 // Canvas panel (center) — pannable/zoomable workspace
 // ===================================================================
 
@@ -605,7 +818,7 @@ struct CanvasState {
 
 static CanvasState g_canvas;
 
-static void DrawCanvasPanel(const PanelLayout& zone) {
+static void DrawCanvasPanel(const PanelLayout& zone, float dpi_scale) {
     ImGui::SetNextWindowPos(zone.pos);
     ImGui::SetNextWindowSize(zone.size);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
@@ -630,19 +843,39 @@ static void DrawCanvasPanel(const PanelLayout& zone) {
     bool canvas_hovered = ImGui::IsItemHovered();
     bool canvas_active  = ImGui::IsItemActive();
 
+    constexpr float kPrevWorldW = 380.0f;
+    constexpr float kPrevWorldH = 300.0f;
+    constexpr float kPrevWorldPad = 16.0f;
+
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Left) &&
+        g_selected_widget != WidgetType::None) {
+        float zm_ = g_canvas.zoom;
+        float ox_ = p0.x + g_canvas.pan.x;
+        float oy_ = p0.y + g_canvas.pan.y;
+        ImVec2 mp = ImGui::GetIO().MousePos;
+        float ptl_x = ox_ + (-kPrevWorldW * 0.5f) * zm_;
+        float ptl_y = oy_ + (-kPrevWorldH * 0.5f) * zm_;
+        float pbr_x = ox_ + ( kPrevWorldW * 0.5f) * zm_;
+        float pbr_y = oy_ + ( kPrevWorldH * 0.5f) * zm_;
+        if (mp.x < ptl_x || mp.x > pbr_x || mp.y < ptl_y || mp.y > pbr_y)
+            g_selected_widget = WidgetType::None;
+    }
+
     ImGuiIO& io = ImGui::GetIO();
+    bool mouse_in_canvas = io.MousePos.x >= p0.x && io.MousePos.x <= p1.x &&
+                           io.MousePos.y >= p0.y && io.MousePos.y <= p1.y;
 
     // Pan: middle-mouse or right-mouse drag
-    if (canvas_hovered && (ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f) ||
-                           ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0.0f))) {
+    if (mouse_in_canvas && (ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f) ||
+                            ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0.0f))) {
         ImVec2 delta = ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f)
                          ? io.MouseDelta : io.MouseDelta;
         g_canvas.pan.x += delta.x;
         g_canvas.pan.y += delta.y;
     }
 
-    // Zoom: mouse wheel, zoom towards cursor
-    if (canvas_hovered && io.MouseWheel != 0.0f) {
+    // Zoom: mouse wheel (Ctrl+scroll forwards to widget instead)
+    if (mouse_in_canvas && !io.KeyCtrl && io.MouseWheel != 0.0f) {
         float zoom_factor = 1.1f;
         float old_zoom = g_canvas.zoom;
         if (io.MouseWheel > 0.0f)
@@ -705,6 +938,17 @@ static void DrawCanvasPanel(const PanelLayout& zone) {
             dl->AddLine(ImVec2(p0.x, oy), ImVec2(p1.x, oy), axis_col, 1.0f);
     }
 
+    // --- Widget preview background (in world space, clipped) ---
+    if (g_selected_widget != WidgetType::None) {
+        ImVec2 ptl = w2s(-kPrevWorldW * 0.5f, -kPrevWorldH * 0.5f);
+        ImVec2 pbr = w2s( kPrevWorldW * 0.5f,  kPrevWorldH * 0.5f);
+        float rnd = 8.0f * zm;
+        dl->AddRectFilled(ptl, pbr,
+                          ImGui::GetColorU32(ImGuiCol_WindowBg), rnd);
+        dl->AddRect(ptl, pbr,
+                    ImGui::GetColorU32(ImGuiCol_Border), rnd);
+    }
+
     // --- Vignette ---
     {
         const float vig = 60.0f;
@@ -723,6 +967,43 @@ static void DrawCanvasPanel(const PanelLayout& zone) {
 
     dl->PopClipRect();
 
+    // --- Widget preview content (child window, scaled by zoom) ---
+    if (g_selected_widget != WidgetType::None) {
+        ImVec2 ctl = w2s(-kPrevWorldW * 0.5f + kPrevWorldPad,
+                         -kPrevWorldH * 0.5f + kPrevWorldPad);
+        ImVec2 cbr = w2s( kPrevWorldW * 0.5f - kPrevWorldPad,
+                          kPrevWorldH * 0.5f - kPrevWorldPad);
+        float cw = cbr.x - ctl.x;
+        float ch = cbr.y - ctl.y;
+
+        if (cw > 1.0f && ch > 1.0f) {
+            const ImGuiStyle& style = ImGui::GetStyle();
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
+                ImVec2(style.FramePadding.x * zm, style.FramePadding.y * zm));
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
+                ImVec2(style.ItemSpacing.x * zm, style.ItemSpacing.y * zm));
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing,
+                ImVec2(style.ItemInnerSpacing.x * zm,
+                       style.ItemInnerSpacing.y * zm));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding,
+                style.FrameRounding * zm);
+
+            ImGui::SetCursorScreenPos(ctl);
+            ImGuiWindowFlags child_flags = io.KeyCtrl
+                ? ImGuiWindowFlags_None
+                : ImGuiWindowFlags_NoScrollWithMouse;
+            ImGui::BeginChild("##preview_content", ImVec2(cw, ch),
+                              false, child_flags);
+            ImGui::SetWindowFontScale(zm);
+
+            DrawWidgetPreview(g_selected_widget, dpi_scale * zm);
+
+            ImGui::EndChild();
+            ImGui::PopStyleVar(5);
+        }
+    }
+
     // --- Zoom indicator (bottom-right corner) ---
     {
         char zbuf[32];
@@ -730,160 +1011,6 @@ static void DrawCanvasPanel(const PanelLayout& zone) {
         ImVec2 tsz = ImGui::CalcTextSize(zbuf);
         dl->AddText(ImVec2(p1.x - tsz.x - 8.0f, p1.y - tsz.y - 6.0f),
                     DrUI::Colors::CanvasLabel, zbuf);
-    }
-
-    ImGui::End();
-}
-
-// ===================================================================
-// Bottom panel — tabs: Controls + Log + Properties
-// ===================================================================
-
-static void DrawControlsTab(float dpi_scale) {
-    static bool playing = false;
-    static int speed = 1;
-    static float ms_per_step = 100.0f;
-
-    if (DrUI::Button(playing ? ICON_FA_PAUSE : ICON_FA_PLAY,
-                     playing ? "\xd0\x9f\xd0\xb0\xd1\x83\xd0\xb7\xd0\xb0"
-                             : "\xd0\x97\xd0\xb0\xd0\xbf\xd1\x83\xd1\x81\xd0\xba")) {
-        playing = !playing;
-    }
-    ImGui::SameLine();
-    if (DrUI::IconButton(ICON_FA_STEP_FORWARD)) {}
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("\xd0\xa8\xd0\xb0\xd0\xb3");
-    ImGui::SameLine();
-    if (DrUI::Button(ICON_FA_STOP, "\xd0\xa1\xd0\xb1\xd1\x80\xd0\xbe\xd1\x81")) {
-        playing = false;
-    }
-
-    if (playing) {
-        ImGui::SameLine();
-        DrUI::Spinner("##ctrl_spin", 8.0f, 2.5f);
-    }
-
-    ImGui::SameLine();
-    DrUI::InputInt("Steps/frame", &speed, 1, 10, 50.0f * dpi_scale);
-    speed = std::clamp(speed, 1, 200);
-
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(120.0f * dpi_scale);
-    DrUI::SliderFloat("\xd0\xbc\xd1\x81/\xd1\x88\xd0\xb0\xd0\xb3",
-                      &ms_per_step, 20.0f, 900.0f, "%.0f");
-}
-
-static void DrawLogTab() {
-    static std::vector<std::string> log_lines;
-    static int counter = 0;
-
-    if (DrUI::Button(ICON_FA_PLUS " \xd0\x94\xd0\xbe\xd0\xb1\xd0\xb0\xd0\xb2\xd0\xb8\xd1\x82\xd1\x8c \xd0\xb7\xd0\xb0\xd0\xbf\xd0\xb8\xd1\x81\xd1\x8c")) {
-        char buf[128];
-        std::snprintf(buf, sizeof(buf),
-                      "[%04d] \xd0\xa1\xd0\xbe\xd0\xb1\xd1\x8b\xd1\x82\xd0\xb8\xd0\xb5 #%d",
-                      counter, counter);
-        log_lines.emplace_back(buf);
-        ++counter;
-        static const DrUI::ToastType types[] = {
-            DrUI::ToastType::Info, DrUI::ToastType::Success,
-            DrUI::ToastType::Warning, DrUI::ToastType::Error
-        };
-        DrUI::ShowToast(buf, types[counter % 4]);
-    }
-    ImGui::SameLine();
-    if (DrUI::Button(ICON_FA_TRASH " \xd0\x9e\xd1\x87\xd0\xb8\xd1\x81\xd1\x82\xd0\xb8\xd1\x82\xd1\x8c")) {
-        log_lines.clear();
-        counter = 0;
-        DrUI::ShowToast("\xd0\x9b\xd0\xbe\xd0\xb3 \xd0\xbe\xd1\x87\xd0\xb8\xd1\x89\xd0\xb5\xd0\xbd",
-                  DrUI::ToastType::Warning);
-    }
-
-    ImGui::BeginChild("##log_scroll", ImVec2(0, 0),
-                      ImGuiChildFlags_Borders);
-    for (const auto& line : log_lines) {
-        ImGui::TextUnformatted(line.c_str());
-    }
-    if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
-        ImGui::SetScrollHereY(1.0f);
-    ImGui::EndChild();
-}
-
-static void DrawPropertiesTab(float dpi_scale) {
-    static char name_buf[128] = "Node_01";
-    static int node_type = 0;
-    static float pos_x = 100.0f, pos_y = 200.0f;
-    static float width = 150.0f, height = 60.0f;
-    static ImVec4 node_color(0.37f, 0.55f, 0.95f, 1.0f);
-
-    ImGui::TextDisabled(ICON_FA_SITEMAP " \xd0\xa1\xd0\xb2\xd0\xbe\xd0\xb9\xd1\x81\xd1\x82\xd0\xb2\xd0\xb0 \xd1\x83\xd0\xb7\xd0\xbb\xd0\xb0");
-    ImGui::Separator();
-
-    ImGui::SetNextItemWidth(150.0f * dpi_scale);
-    ImGui::InputText("\xd0\x98\xd0\xbc\xd1\x8f", name_buf, sizeof(name_buf));
-
-    const char* types[] = {"Action", "Question", "Fork", "End"};
-    ImGui::SetNextItemWidth(150.0f * dpi_scale);
-    ImGui::Combo("\xd0\xa2\xd0\xb8\xd0\xbf", &node_type, types, 4);
-
-    ImGui::SetNextItemWidth(100.0f * dpi_scale);
-    ImGui::DragFloat("X", &pos_x, 1.0f);
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(100.0f * dpi_scale);
-    ImGui::DragFloat("Y", &pos_y, 1.0f);
-
-    ImGui::SetNextItemWidth(100.0f * dpi_scale);
-    ImGui::DragFloat("W", &width, 1.0f, 10.0f, 500.0f);
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(100.0f * dpi_scale);
-    ImGui::DragFloat("H", &height, 1.0f, 10.0f, 500.0f);
-
-    ImGui::ColorEdit4("\xd0\xa6\xd0\xb2\xd0\xb5\xd1\x82", &node_color.x);
-
-    ImGui::Spacing();
-    if (DrUI::Button(ICON_FA_CHECK " \xd0\x9f\xd1\x80\xd0\xb8\xd0\xbc\xd0\xb5\xd0\xbd\xd0\xb8\xd1\x82\xd1\x8c")) {}
-    ImGui::SameLine();
-    if (DrUI::Button(ICON_FA_UNDO " \xd0\xa1\xd0\xb1\xd1\x80\xd0\xbe\xd1\x81")) {}
-}
-
-static void DrawBottomPanel(const PanelLayout& zone, float dpi_scale,
-                             PanelVisibility& panels) {
-    ImGui::SetNextWindowPos(zone.pos);
-    ImGui::SetNextWindowSize(zone.size);
-    if (panels.bottom_collapsed)
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0, 0));
-    ImGui::Begin("##BottomPanel", nullptr, kPanelFlags);
-    if (panels.bottom_collapsed)
-        ImGui::PopStyleVar();
-
-    static int active_tab = 0;
-    int current_tab = active_tab;
-
-    if (ImGui::BeginTabBar("##BottomTabs", ImGuiTabBarFlags_DrawSelectedOverline)) {
-        if (panels.tab_controls && ImGui::BeginTabItem(ICON_FA_PLAY " \xd0\xa3\xd0\xbf\xd1\x80\xd0\xb0\xd0\xb2\xd0\xbb\xd0\xb5\xd0\xbd\xd0\xb8\xd0\xb5", &panels.tab_controls)) {
-            current_tab = 0;
-            if (ImGui::IsItemClicked() && active_tab == 0)
-                panels.bottom_collapsed = !panels.bottom_collapsed;
-            if (!panels.bottom_collapsed) DrawControlsTab(dpi_scale);
-            ImGui::EndTabItem();
-        }
-        if (panels.tab_log && ImGui::BeginTabItem(ICON_FA_BARS " \xd0\x9b\xd0\xbe\xd0\xb3", &panels.tab_log)) {
-            current_tab = 1;
-            if (ImGui::IsItemClicked() && active_tab == 1)
-                panels.bottom_collapsed = !panels.bottom_collapsed;
-            if (!panels.bottom_collapsed) DrawLogTab();
-            ImGui::EndTabItem();
-        }
-        if (panels.tab_properties && ImGui::BeginTabItem(ICON_FA_SITEMAP " \xd0\xa1\xd0\xb2\xd0\xbe\xd0\xb9\xd1\x81\xd1\x82\xd0\xb2\xd0\xb0", &panels.tab_properties)) {
-            current_tab = 2;
-            if (ImGui::IsItemClicked() && active_tab == 2)
-                panels.bottom_collapsed = !panels.bottom_collapsed;
-            if (!panels.bottom_collapsed) DrawPropertiesTab(dpi_scale);
-            ImGui::EndTabItem();
-        }
-        if (current_tab != active_tab)
-            panels.bottom_collapsed = false;
-        active_tab = current_tab;
-        ImGui::EndTabBar();
     }
 
     ImGui::End();

@@ -13,7 +13,6 @@ struct PanelLayout {
 struct EditorLayout {
     PanelLayout left;
     PanelLayout canvas;
-    PanelLayout bottom;
 };
 
 struct SplitterState {
@@ -21,21 +20,14 @@ struct SplitterState {
 };
 
 struct EditorSplitters {
-    float split_h = 0.22f;
-    float split_v = 0.72f;
+    float split_h = 0.286f;
     SplitterState h_state;
-    SplitterState v_state;
 };
 
 struct PanelVisibility {
-    bool tab_explorer      = true;
     bool tab_widgets       = true;
-    bool tab_controls      = true;
-    bool tab_log           = true;
-    bool tab_properties    = true;
     bool tab_skeuomorph    = true;
     bool status_bar        = true;
-    bool bottom_collapsed  = false;
     float dpi_scale        = 1.0f;
 };
 
@@ -45,8 +37,7 @@ static constexpr ImGuiWindowFlags kPanelFlags =
 
 static EditorLayout CalculateLayout(ImGuiViewport* vp, float gap,
                                     float menu_h, float status_h,
-                                    const EditorSplitters& sp,
-                                    const PanelVisibility& pv = {}) {
+                                    const EditorSplitters& sp) {
     const float x = vp->WorkPos.x;
     const float y = vp->WorkPos.y + menu_h;
     const float w = vp->WorkSize.x;
@@ -56,30 +47,13 @@ static EditorLayout CalculateLayout(ImGuiViewport* vp, float gap,
     const float left_w = usable_w * sp.split_h;
     const float right_col_w = usable_w - left_w;
 
-    const float usable_h = h - gap * 3.0f;
-    float canvas_h, bottom_h;
-    if (pv.bottom_collapsed) {
-        const auto& style = ImGui::GetStyle();
-        const float tab_bar_h = ImGui::GetFrameHeight() + style.WindowPadding.y * 2.0f;
-        bottom_h = tab_bar_h;
-        canvas_h = usable_h - bottom_h;
-    } else {
-        canvas_h = usable_h * sp.split_v;
-        bottom_h = usable_h - canvas_h;
-    }
-
-    const float bottom_top = y + gap + canvas_h + gap;
-
     EditorLayout l{};
 
     l.left.pos  = ImVec2(x + gap, y + gap);
     l.left.size = ImVec2(left_w, h - gap * 2.0f);
 
     l.canvas.pos  = ImVec2(x + gap + left_w + gap, y + gap);
-    l.canvas.size = ImVec2(right_col_w, canvas_h);
-
-    l.bottom.pos  = ImVec2(x + gap + left_w + gap, bottom_top);
-    l.bottom.size = ImVec2(right_col_w, bottom_h);
+    l.canvas.size = ImVec2(right_col_w, h - gap * 2.0f);
 
     return l;
 }
@@ -115,51 +89,14 @@ static bool HandleSplitterH(const EditorLayout& layout, float gap,
     return false;
 }
 
-static bool HandleSplitterV(const EditorLayout& layout, float gap,
-                             float usable_h, float origin_y,
-                             SplitterState& state, float& split) {
-    ImGuiIO& io = ImGui::GetIO();
-
-    float y0 = layout.canvas.pos.y + layout.canvas.size.y;
-    float y1 = layout.bottom.pos.y;
-    float x0 = layout.canvas.pos.x;
-    float x1 = layout.canvas.pos.x + layout.canvas.size.x;
-
-    float extend = 4.0f;
-    bool hovered = io.MousePos.y >= y0 - extend && io.MousePos.y <= y1 + extend &&
-                   io.MousePos.x >= x0 && io.MousePos.x <= x1;
-
-    if (hovered || state.dragging)
-        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
-
-    if (hovered && io.MouseClicked[0])
-        state.dragging = true;
-
-    if (state.dragging) {
-        if (io.MouseDown[0]) {
-            float new_canvas = io.MousePos.y - origin_y - gap - gap * 0.5f;
-            split = std::clamp(new_canvas / usable_h, 0.30f, 0.90f);
-            return true;
-        }
-        state.dragging = false;
-    }
-    return false;
-}
-
 static void HandleSplitters(const EditorLayout& layout, float gap,
                              ImGuiViewport* vp, float menu_h, float status_h,
-                             EditorSplitters& sp,
-                             bool bottom_collapsed = false) {
+                             EditorSplitters& sp) {
     const float w = vp->WorkSize.x;
-    const float h = vp->WorkSize.y - menu_h - status_h;
     const float usable_w = w - gap * 3.0f;
-    const float usable_h = h - gap * 3.0f;
     const float origin_x = vp->WorkPos.x;
-    const float origin_y = vp->WorkPos.y + menu_h;
 
     HandleSplitterH(layout, gap, usable_w, origin_x, sp.h_state, sp.split_h);
-    if (!bottom_collapsed)
-        HandleSplitterV(layout, gap, usable_h, origin_y, sp.v_state, sp.split_v);
 }
 
 static void DrawSplitterIndicators(const EditorLayout& layout, float gap,
@@ -202,10 +139,4 @@ static void DrawSplitterIndicators(const EditorLayout& layout, float gap,
          layout.canvas.pos.x,
          layout.left.pos.y + layout.left.size.y,
          true, sp.h_state.dragging);
-
-    draw(layout.canvas.pos.x,
-         layout.canvas.pos.y + layout.canvas.size.y,
-         layout.canvas.pos.x + layout.canvas.size.x,
-         layout.bottom.pos.y,
-         false, sp.v_state.dragging);
 }
