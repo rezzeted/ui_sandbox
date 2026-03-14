@@ -1786,6 +1786,195 @@ static void DrawWidgetPreview(WidgetType type, float dpi_scale) {
 }
 
 // ===================================================================
+// Brushed Aluminum Panel (procedural metal texture)
+// ===================================================================
+
+static inline unsigned int AlumHash(unsigned int x) {
+    x ^= x >> 16; x *= 0x45d9f3bU;
+    x ^= x >> 16; x *= 0x45d9f3bU;
+    x ^= x >> 16;
+    return x;
+}
+
+static inline float AlumCornerInset(float dy, float r) {
+    if (dy >= r) return 0.0f;
+    float d = r - dy;
+    return r - std::sqrt(r * r - d * d);
+}
+
+static void DrawBrushedAluminumPanel(ImDrawList* dl, ImVec2 pos,
+                                      float w, float h, float rnd, float zm) {
+    ImVec2 p0 = pos, p1(pos.x + w, pos.y + h);
+
+    // --- Outer drop shadow (multi-pass, offset down) ---
+    {
+        constexpr int kPasses = 10;
+        constexpr float kSpread = 10.0f;
+        float sdy = 4.0f * zm;
+        for (int i = kPasses; i >= 0; --i) {
+            float f = (float)i / (float)kPasses;
+            float ex = kSpread * f * zm;
+            int a = (int)(18.0f * (1.0f - f) * (1.0f - f));
+            dl->AddRectFilled(
+                ImVec2(p0.x - ex, p0.y + sdy - ex),
+                ImVec2(p1.x + ex, p1.y + sdy + ex),
+                IM_COL32(0, 0, 0, a), rnd + ex);
+        }
+    }
+
+    // --- Base rounded rect (clip shape) ---
+    dl->AddRectFilled(p0, p1, IM_COL32(192, 196, 202, 255), rnd);
+
+    // --- Horizontal grain + reflection curve (segmented gradient) ---
+    {
+        float step = std::max(1.0f, zm);
+
+        for (float ly = 0.0f; ly < h; ly += step) {
+            float t = ly / h;
+            int iy = (int)(ly / step);
+
+            // Base luminance from reflection curve
+            float lum;
+            if      (t < 0.15f) lum = 230.0f - (230.0f - 218.0f) * (t / 0.15f);
+            else if (t < 0.25f) lum = 218.0f + (238.0f - 218.0f) * ((t - 0.15f) / 0.10f);
+            else if (t < 0.35f) lum = 238.0f - (238.0f - 235.0f) * ((t - 0.25f) / 0.10f);
+            else if (t < 0.55f) lum = 235.0f - (235.0f - 195.0f) * ((t - 0.35f) / 0.20f);
+            else if (t < 0.85f) lum = 195.0f - (195.0f - 185.0f) * ((t - 0.55f) / 0.30f);
+            else                lum = 185.0f + (192.0f - 185.0f) * ((t - 0.85f) / 0.15f);
+
+            float fineNoise = (float)(AlumHash((unsigned int)iy) & 0xFFF) / 4095.0f;
+            lum += (fineNoise - 0.5f) * 5.0f;
+
+            if ((iy % 5) == 0) {
+                float coarseNoise = (float)(AlumHash((unsigned int)(iy * 7 + 31)) & 0xFFF) / 4095.0f;
+                lum += (coarseNoise - 0.5f) * 8.0f;
+            }
+
+            if ((AlumHash((unsigned int)(iy * 13 + 97)) & 0x3F) == 0)
+                lum -= 6.0f;
+
+            float insetTop = AlumCornerInset(ly, rnd);
+            float insetBot = AlumCornerInset(h - ly - step, rnd);
+            float inset = std::max(insetTop, insetBot);
+
+            float lx0 = p0.x + inset;
+            float lx1 = p1.x - inset;
+            float lineW = lx1 - lx0;
+            if (lineW <= 0.0f) continue;
+
+            float lineY0 = p0.y + ly;
+            float lineY1 = lineY0 + step;
+
+            // Number of segments: 2-6, deterministic per line
+            int nSeg = 2 + (int)(AlumHash((unsigned int)(iy * 3 + 5)) % 5);
+            int nPts = nSeg + 1;
+
+            // Build control points: x-positions and luminance offsets
+            float ptX[8];
+            float ptLum[8];
+            ptX[0] = lx0;
+            ptX[nPts - 1] = lx1;
+
+            float segLen = lineW / (float)nSeg;
+            for (int k = 1; k < nPts - 1; ++k) {
+                float idealX = lx0 + segLen * (float)k;
+                float jitter = (float)((int)(AlumHash((unsigned int)(iy * 17 + k * 131)) & 0xFFF) - 2048) / 2048.0f;
+                ptX[k] = idealX + jitter * segLen * 0.20f;
+                if (ptX[k] <= ptX[k - 1] + 1.0f) ptX[k] = ptX[k - 1] + 1.0f;
+                if (ptX[k] >= lx1 - 1.0f) ptX[k] = lx1 - 1.0f;
+            }
+
+            // Brightness offset per point: +-15% of base lum
+            for (int k = 0; k < nPts; ++k) {
+                float nf = (float)((int)(AlumHash((unsigned int)(iy * 23 + k * 71)) & 0xFFF) - 2048) / 2048.0f;
+                ptLum[k] = lum * (1.0f + nf * 0.15f);
+            }
+
+            // Draw gradient sub-segments
+            for (int k = 0; k < nSeg; ++k) {
+                float x0 = ptX[k], x1 = ptX[k + 1];
+                if (x1 <= x0) continue;
+
+                float lumL = ptLum[k], lumR = ptLum[k + 1];
+                int rL = std::min(255, std::max(0, (int)(lumL - 2.0f)));
+                int gL = std::min(255, std::max(0, (int)(lumL)));
+                int bL = std::min(255, std::max(0, (int)(lumL + 3.0f)));
+                int rR = std::min(255, std::max(0, (int)(lumR - 2.0f)));
+                int gR = std::min(255, std::max(0, (int)(lumR)));
+                int bR = std::min(255, std::max(0, (int)(lumR + 3.0f)));
+
+                ImU32 colL = IM_COL32(rL, gL, bL, 255);
+                ImU32 colR = IM_COL32(rR, gR, bR, 255);
+                dl->AddRectFilledMultiColor(
+                    ImVec2(x0, lineY0), ImVec2(x1, lineY1),
+                    colL, colR, colR, colL);
+            }
+        }
+    }
+
+    // --- Specular highlight bloom (gaussian, ~30% from top) ---
+    {
+        float peakY = h * 0.28f;
+        float sigma = h * 0.07f;
+        constexpr int kSteps = 16;
+        float bandTop = peakY - sigma * 3.0f;
+        float bandBot = peakY + sigma * 3.0f;
+        float stripH = (bandBot - bandTop) / (float)kSteps;
+
+        for (int i = 0; i < kSteps; ++i) {
+            float cy = bandTop + stripH * ((float)i + 0.5f);
+            float d = (cy - peakY) / sigma;
+            float intensity = std::exp(-0.5f * d * d);
+            int a = (int)(45.0f * intensity);
+            if (a < 1) continue;
+
+            float dy = cy;
+            float insetT = AlumCornerInset(dy, rnd);
+            float insetB = AlumCornerInset(h - dy - stripH, rnd);
+            float inset = std::max(insetT, insetB);
+
+            dl->AddRectFilled(
+                ImVec2(p0.x + inset, p0.y + cy - stripH * 0.5f),
+                ImVec2(p1.x - inset, p0.y + cy + stripH * 0.5f),
+                IM_COL32(255, 255, 255, a));
+        }
+    }
+
+    // --- Inner bevel ---
+    for (int i = 0; i < 3; ++i) {
+        float off = (float)(i + 1) * zm;
+        int a = (int)(60.0f / (float)(i + 1));
+        dl->AddLine(ImVec2(p0.x + rnd, p0.y + off),
+                    ImVec2(p1.x - rnd, p0.y + off),
+                    IM_COL32(255, 255, 255, a), zm);
+    }
+    for (int i = 0; i < 3; ++i) {
+        float off = (float)(i + 1) * zm;
+        int a = (int)(35.0f / (float)(i + 1));
+        dl->AddLine(ImVec2(p0.x + rnd, p1.y - off),
+                    ImVec2(p1.x - rnd, p1.y - off),
+                    IM_COL32(0, 0, 0, a), zm);
+    }
+    for (int i = 0; i < 2; ++i) {
+        float off = (float)(i + 1) * zm;
+        int a = (int)(30.0f / (float)(i + 1));
+        dl->AddLine(ImVec2(p0.x + off, p0.y + rnd),
+                    ImVec2(p0.x + off, p1.y - rnd),
+                    IM_COL32(255, 255, 255, a), zm);
+    }
+    for (int i = 0; i < 2; ++i) {
+        float off = (float)(i + 1) * zm;
+        int a = (int)(20.0f / (float)(i + 1));
+        dl->AddLine(ImVec2(p1.x - off, p0.y + rnd),
+                    ImVec2(p1.x - off, p1.y - rnd),
+                    IM_COL32(0, 0, 0, a), zm);
+    }
+
+    // --- Border ---
+    dl->AddRect(p0, p1, IM_COL32(150, 155, 162, 200), rnd, 0, 1.2f * zm);
+}
+
+// ===================================================================
 // Canvas panel (center) — pannable/zoomable workspace
 // ===================================================================
 
@@ -1915,6 +2104,17 @@ static void DrawCanvasPanel(const PanelLayout& zone, float dpi_scale) {
             dl->AddLine(ImVec2(ox, p0.y), ImVec2(ox, p1.y), axis_col, 1.0f);
         if (oy > p0.y && oy < p1.y)
             dl->AddLine(ImVec2(p0.x, oy), ImVec2(p1.x, oy), axis_col, 1.0f);
+    }
+
+    // --- Brushed aluminum panel (always visible, centered at origin) ---
+    {
+        constexpr float kAlumW = 600.0f;
+        constexpr float kAlumH = 400.0f;
+        ImVec2 atl = w2s(-kAlumW * 0.5f, -kAlumH * 0.5f);
+        float aw = kAlumW * zm;
+        float ah = kAlumH * zm;
+        float arnd = 16.0f * zm;
+        DrawBrushedAluminumPanel(dl, atl, aw, ah, arnd, zm);
     }
 
     // --- Widget preview background (in world space, clipped) ---
