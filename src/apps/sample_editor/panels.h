@@ -159,16 +159,39 @@ static void DrawMainMenuBar(PanelVisibility& panels, AppState& app) {
 // Left panel — file tree
 // ===================================================================
 
-static void DrawFileTreeNode(const FileNode& node, AppState& app) {
+static bool FuzzyMatch(const char* text, const char* filter) {
+    if (!filter[0]) return true;
+    for (const char *a = text, *b = filter; *b; ) {
+        if (*a == '\0') return false;
+        if ((*a | 32) == (*b | 32)) { ++a; ++b; if (!*b) return true; }
+        else { ++a; b = filter; }
+    }
+    return false;
+}
+
+static bool NodeMatchesFilter(const FileNode& node, const char* filter) {
+    if (!filter[0]) return true;
+    if (FuzzyMatch(node.name.c_str(), filter)) return true;
+    if (node.is_dir) {
+        for (auto& child : node.children)
+            if (NodeMatchesFilter(child, filter)) return true;
+    }
+    return false;
+}
+
+static void DrawFileTreeNode(const FileNode& node, AppState& app, const char* filter) {
+    if (!NodeMatchesFilter(node, filter)) return;
+
     if (node.is_dir) {
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow |
                                    ImGuiTreeNodeFlags_SpanAvailWidth;
+        if (filter[0]) flags |= ImGuiTreeNodeFlags_DefaultOpen;
         char label[256];
         std::snprintf(label, sizeof(label), ICON_FA_FOLDER " %s", node.name.c_str());
         bool open = ImGui::TreeNodeEx(label, flags);
         if (open) {
             for (auto& child : node.children)
-                DrawFileTreeNode(child, app);
+                DrawFileTreeNode(child, app, filter);
             ImGui::TreePop();
         }
     } else {
@@ -193,15 +216,12 @@ static void DrawLeftPanel(const PanelLayout& zone, float dpi_scale,
 
     if (ImGui::BeginTabBar("##LeftTabs", ImGuiTabBarFlags_DrawSelectedOverline)) {
         if (panels.tab_explorer && ImGui::BeginTabItem(ICON_FA_FOLDER " \xd0\x9f\xd1\x80\xd0\xbe\xd0\xb5\xd0\xba\xd1\x82", &panels.tab_explorer)) {
-            if (DrUI::Button(ICON_FA_REDO " \xd0\x9e\xd0\xb1\xd0\xbd\xd0\xbe\xd0\xb2\xd0\xb8\xd1\x82\xd1\x8c")) {
-                app.root.children.clear();
-                BuildFileTree(app.root);
-                app.log("\xd0\x94\xd0\xb5\xd1\x80\xd0\xb5\xd0\xb2\xd0\xbe \xd0\xbe\xd0\xb1\xd0\xbd\xd0\xbe\xd0\xb2\xd0\xbb\xd0\xb5\xd0\xbd\xd0\xbe");
-            }
-            ImGui::Separator();
+            static char search_buf[128] = "";
+            DrUI::SearchInput("##tree_search", search_buf, sizeof(search_buf));
+            ImGui::Spacing();
             ImGui::BeginChild("##file_tree", ImVec2(0, 0), false);
             for (auto& child : app.root.children)
-                DrawFileTreeNode(child, app);
+                DrawFileTreeNode(child, app, search_buf);
             ImGui::EndChild();
             ImGui::EndTabItem();
         }
@@ -311,11 +331,20 @@ static void DrawBottomPanel(const PanelLayout& zone, float dpi_scale,
     if (panels.bottom_collapsed)
         ImGui::PopStyleVar();
 
+    static int active_tab = 0;
+    int current_tab = active_tab;
+
     if (ImGui::BeginTabBar("##BottomTabs", ImGuiTabBarFlags_DrawSelectedOverline)) {
         if (panels.tab_log && ImGui::BeginTabItem(ICON_FA_BARS " \xd0\x9b\xd0\xbe\xd0\xb3", &panels.tab_log)) {
+            current_tab = 0;
+            if (ImGui::IsItemClicked() && active_tab == 0)
+                panels.bottom_collapsed = !panels.bottom_collapsed;
             if (!panels.bottom_collapsed) DrawLogTab(app);
             ImGui::EndTabItem();
         }
+        if (current_tab != active_tab)
+            panels.bottom_collapsed = false;
+        active_tab = current_tab;
         ImGui::EndTabBar();
     }
 
