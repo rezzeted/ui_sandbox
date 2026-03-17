@@ -16,3 +16,6 @@
 [submodule "thirdparty/magic_enum"]
 	path = thirdparty/magic_enum
 	url = https://github.com/Neargye/magic_enum.git
+[submodule "toolchain/vcpkg"]
+	path = toolchain/vcpkg
+	url = git@github.com:nvoronetskiy/vcpkg.git
