@@ -2034,6 +2034,376 @@ static void DrawBrushedAluminumPanel(ImDrawList* dl, ImVec2 pos,
 }
 
 // ===================================================================
+// Brushed Aluminum Panel — Skeuomorphic variant (raised, lit from top-left)
+// ===================================================================
+
+static void DrawBrushedAluminumPanelSkeuo(ImDrawList* dl, ImVec2 pos,
+                                           float w, float h, float rnd, float zm) {
+    ImVec2 p0 = pos, p1(pos.x + w, pos.y + h);
+
+    // === Outer shadows (same principle as DrawSkeuoButtonImpl raised state) ===
+
+    // Dark shadow: offset down-right (2x thickness)
+    {
+        constexpr int passes = 12;
+        constexpr float spread = 16.0f;
+        float sdx = 6.0f * zm, sdy = 6.0f * zm;
+        for (int i = passes; i >= 0; --i) {
+            float f = (float)i / (float)passes;
+            float ex = spread * f * zm;
+            int a = (int)(16.0f * (1.0f - f) * (1.0f - f));
+            dl->AddRectFilled(ImVec2(p0.x + sdx - ex, p0.y + sdy - ex),
+                              ImVec2(p1.x + sdx + ex, p1.y + sdy + ex),
+                              IM_COL32(0, 0, 0, a), rnd + ex);
+        }
+    }
+    // Light glow: offset up-left (2x thickness)
+    {
+        constexpr int passes = 12;
+        constexpr float spread = 16.0f;
+        float lx = -5.0f * zm, ly = -5.0f * zm;
+        for (int i = passes; i >= 0; --i) {
+            float f = (float)i / (float)passes;
+            float ex = spread * f * zm;
+            int a = (int)(30.0f * (1.0f - f) * (1.0f - f));
+            dl->AddRectFilled(ImVec2(p0.x + lx - ex, p0.y + ly - ex),
+                              ImVec2(p1.x + lx + ex, p1.y + ly + ex),
+                              IM_COL32(255, 255, 255, a), rnd + ex);
+        }
+    }
+
+    // === Base fill (same brushed texture) ===
+    dl->AddRectFilled(p0, p1, IM_COL32(192, 196, 202, 255), rnd);
+
+    // === Horizontal grain + reflection curve (segmented gradient) ===
+    {
+        float step = std::max(1.0f, zm);
+        for (float ly = 0.0f; ly < h; ly += step) {
+            float t = ly / h;
+            int iy = (int)(ly / step);
+
+            float lum;
+            if      (t < 0.15f) lum = 230.0f - (230.0f - 218.0f) * (t / 0.15f);
+            else if (t < 0.25f) lum = 218.0f + (238.0f - 218.0f) * ((t - 0.15f) / 0.10f);
+            else if (t < 0.35f) lum = 238.0f - (238.0f - 235.0f) * ((t - 0.25f) / 0.10f);
+            else if (t < 0.55f) lum = 235.0f - (235.0f - 195.0f) * ((t - 0.35f) / 0.20f);
+            else if (t < 0.85f) lum = 195.0f - (195.0f - 185.0f) * ((t - 0.55f) / 0.30f);
+            else                lum = 185.0f + (192.0f - 185.0f) * ((t - 0.85f) / 0.15f);
+
+            float fineNoise = (float)(AlumHash((unsigned int)(iy + 500)) & 0xFFF) / 4095.0f;
+            lum += (fineNoise - 0.5f) * 2.5f;
+            if ((iy % 5) == 0) {
+                float cn = (float)(AlumHash((unsigned int)(iy * 7 + 531)) & 0xFFF) / 4095.0f;
+                lum += (cn - 0.5f) * 4.0f;
+            }
+            if ((AlumHash((unsigned int)(iy * 13 + 597)) & 0x3F) == 0)
+                lum -= 3.0f;
+
+            float insetTop = AlumCornerInset(ly, rnd);
+            float insetBot = AlumCornerInset(h - ly - step, rnd);
+            float inset = std::max(insetTop, insetBot);
+            float lx0 = p0.x + inset, lx1 = p1.x - inset;
+            float lineW = lx1 - lx0;
+            if (lineW <= 0.0f) continue;
+
+            float lineY0 = p0.y + ly, lineY1 = lineY0 + step;
+
+            int nSeg = 4 + (int)(AlumHash((unsigned int)(iy * 3 + 505)) % 9);
+            int nPts = nSeg + 1;
+            float ptX[14], ptLum[14];
+            ptX[0] = lx0; ptX[nPts - 1] = lx1;
+            float segLen = lineW / (float)nSeg;
+            for (int k = 1; k < nPts - 1; ++k) {
+                float idealX = lx0 + segLen * (float)k;
+                float jitter = (float)((int)(AlumHash((unsigned int)(iy * 17 + k * 131 + 500)) & 0xFFF) - 2048) / 2048.0f;
+                ptX[k] = idealX + jitter * segLen * 0.20f;
+                if (ptX[k] <= ptX[k - 1] + 1.0f) ptX[k] = ptX[k - 1] + 1.0f;
+                if (ptX[k] >= lx1 - 1.0f) ptX[k] = lx1 - 1.0f;
+            }
+            for (int k = 0; k < nPts; ++k) {
+                float nf = (float)((int)(AlumHash((unsigned int)(iy * 23 + k * 71 + 500)) & 0xFFF) - 2048) / 2048.0f;
+                ptLum[k] = lum * (1.0f + nf * 0.075f);
+            }
+            for (int k = 0; k < nSeg; ++k) {
+                float x0 = ptX[k], x1 = ptX[k + 1];
+                if (x1 <= x0) continue;
+                float lumL = ptLum[k], lumR = ptLum[k + 1];
+                int rL = std::min(255, std::max(0, (int)(lumL - 2.0f)));
+                int gL = std::min(255, std::max(0, (int)(lumL)));
+                int bL = std::min(255, std::max(0, (int)(lumL + 3.0f)));
+                int rR = std::min(255, std::max(0, (int)(lumR - 2.0f)));
+                int gR = std::min(255, std::max(0, (int)(lumR)));
+                int bR = std::min(255, std::max(0, (int)(lumR + 3.0f)));
+                dl->AddRectFilledMultiColor(
+                    ImVec2(x0, lineY0), ImVec2(x1, lineY1),
+                    IM_COL32(rL, gL, bL, 255), IM_COL32(rR, gR, bR, 255),
+                    IM_COL32(rR, gR, bR, 255), IM_COL32(rL, gL, bL, 255));
+            }
+        }
+    }
+
+    // === Second pass: sparse overlay ===
+    {
+        float step2 = std::max(3.0f, 3.0f * zm);
+        for (float ly = 0.0f; ly < h; ly += step2) {
+            int iy2 = (int)(ly / step2);
+            if ((AlumHash((unsigned int)(iy2 * 37 + 699)) & 7) < 3) continue;
+            float t = ly / h;
+            float lum;
+            if      (t < 0.15f) lum = 230.0f - (230.0f - 218.0f) * (t / 0.15f);
+            else if (t < 0.25f) lum = 218.0f + (238.0f - 218.0f) * ((t - 0.15f) / 0.10f);
+            else if (t < 0.35f) lum = 238.0f - (238.0f - 235.0f) * ((t - 0.25f) / 0.10f);
+            else if (t < 0.55f) lum = 235.0f - (235.0f - 195.0f) * ((t - 0.35f) / 0.20f);
+            else if (t < 0.85f) lum = 195.0f - (195.0f - 185.0f) * ((t - 0.55f) / 0.30f);
+            else                lum = 185.0f + (192.0f - 185.0f) * ((t - 0.85f) / 0.15f);
+            float n = (float)(AlumHash((unsigned int)(iy2 * 53 + 507)) & 0xFFF) / 4095.0f;
+            lum += (n - 0.5f) * 7.0f;
+            int r = std::min(255, std::max(0, (int)(lum - 2.0f)));
+            int g = std::min(255, std::max(0, (int)(lum)));
+            int b = std::min(255, std::max(0, (int)(lum + 3.0f)));
+            float insetTop = AlumCornerInset(ly, rnd);
+            float insetBot = AlumCornerInset(h - ly - step2, rnd);
+            float inset = std::max(insetTop, insetBot);
+            float lx0 = p0.x + inset, lx1 = p1.x - inset;
+            float lineW = lx1 - lx0;
+            if (lineW <= 0.0f) continue;
+            float pctLen = 0.20f + 0.60f * ((float)(AlumHash((unsigned int)(iy2 * 11 + 541)) & 0xFFF) / 4095.0f);
+            float segW = lineW * pctLen;
+            float maxOff = lineW - segW;
+            float off = maxOff * ((float)(AlumHash((unsigned int)(iy2 * 29 + 583)) & 0xFFF) / 4095.0f);
+            float sx0 = lx0 + off, sx1 = sx0 + segW;
+            int alpha = 60 + (int)(AlumHash((unsigned int)(iy2 * 43 + 561)) % 50);
+            dl->AddLine(ImVec2(sx0, p0.y + ly + step2 * 0.5f),
+                        ImVec2(sx1, p0.y + ly + step2 * 0.5f),
+                        IM_COL32(r, g, b, alpha), std::max(0.5f, 0.5f * zm));
+        }
+    }
+
+    // === Specular highlight bloom ===
+    {
+        float peakY = h * 0.28f;
+        float sigma = h * 0.07f;
+        constexpr int kSteps = 16;
+        float bandTop = peakY - sigma * 3.0f;
+        float bandBot = peakY + sigma * 3.0f;
+        float stripH = (bandBot - bandTop) / (float)kSteps;
+        for (int i = 0; i < kSteps; ++i) {
+            float cy = bandTop + stripH * ((float)i + 0.5f);
+            float d = (cy - peakY) / sigma;
+            float intensity = std::exp(-0.5f * d * d);
+            int a = (int)(45.0f * intensity);
+            if (a < 1) continue;
+            float insetT = AlumCornerInset(cy, rnd);
+            float insetB = AlumCornerInset(h - cy - stripH, rnd);
+            float inset = std::max(insetT, insetB);
+            dl->AddRectFilled(
+                ImVec2(p0.x + inset, p0.y + cy - stripH * 0.5f),
+                ImVec2(p1.x - inset, p0.y + cy + stripH * 0.5f),
+                IM_COL32(255, 255, 255, a));
+        }
+    }
+
+    // === Inner highlights only (no darkening on panel itself) ===
+
+    // Top inner highlight
+    for (int i = 0; i < 4; ++i) {
+        float off = (float)(i + 1) * zm;
+        int a = (int)(90.0f / (float)(i + 1));
+        dl->AddLine(ImVec2(p0.x + rnd, p0.y + off),
+                    ImVec2(p1.x - rnd, p0.y + off),
+                    IM_COL32(255, 255, 255, a), zm);
+    }
+    // Left inner highlight
+    for (int i = 0; i < 3; ++i) {
+        float off = (float)(i + 1) * zm;
+        int a = (int)(50.0f / (float)(i + 1));
+        dl->AddLine(ImVec2(p0.x + off, p0.y + rnd),
+                    ImVec2(p0.x + off, p1.y - rnd),
+                    IM_COL32(255, 255, 255, a), zm);
+    }
+
+}
+
+// ===================================================================
+// Brushed Aluminum Button (small skeuo panel with icon + label)
+// ===================================================================
+
+static void DrawAluminumButton(ImDrawList* dl, ImVec2 pos,
+                                float w, float h, float rnd, float zm,
+                                const char* icon, const char* label,
+                                ImU32 fillCol = IM_COL32(75, 90, 120, 255)) {
+    ImVec2 p0 = pos, p1(pos.x + w, pos.y + h);
+
+    // === Outer shadows (skeuo raised) ===
+    // Dark shadow down-right
+    {
+        constexpr int passes = 12;
+        constexpr float spread = 16.0f;
+        float sdx = 6.0f * zm, sdy = 6.0f * zm;
+        for (int i = passes; i >= 0; --i) {
+            float f = (float)i / (float)passes;
+            float ex = spread * f * zm;
+            int a = (int)(16.0f * (1.0f - f) * (1.0f - f));
+            dl->AddRectFilled(ImVec2(p0.x + sdx - ex, p0.y + sdy - ex),
+                              ImVec2(p1.x + sdx + ex, p1.y + sdy + ex),
+                              IM_COL32(0, 0, 0, a), rnd + ex);
+        }
+    }
+    // Light glow up-left
+    {
+        constexpr int passes = 12;
+        constexpr float spread = 16.0f;
+        float lx = -5.0f * zm, ly = -5.0f * zm;
+        for (int i = passes; i >= 0; --i) {
+            float f = (float)i / (float)passes;
+            float ex = spread * f * zm;
+            int a = (int)(30.0f * (1.0f - f) * (1.0f - f));
+            dl->AddRectFilled(ImVec2(p0.x + lx - ex, p0.y + ly - ex),
+                              ImVec2(p1.x + lx + ex, p1.y + ly + ex),
+                              IM_COL32(255, 255, 255, a), rnd + ex);
+        }
+    }
+
+    // === Colored fill ===
+    dl->AddRectFilled(p0, p1, fillCol, rnd);
+
+    // === Icon + label (light text) ===
+    ImU32 textCol = IM_COL32(242, 242, 242, 255);
+    ImFont* font = ImGui::GetFont();
+    float fsz = ImGui::GetFontSize() * zm;
+
+    ImVec2 iconSz = font->CalcTextSizeA(fsz * 1.3f, FLT_MAX, 0, icon);
+    ImVec2 labelSz = font->CalcTextSizeA(fsz * 0.85f, FLT_MAX, 0, label);
+
+    float totalH = iconSz.y + 4.0f * zm + labelSz.y;
+    float startY = pos.y + (h - totalH) * 0.5f;
+
+    float iconX = pos.x + (w - iconSz.x) * 0.5f;
+    dl->AddText(font, fsz * 1.3f, ImVec2(iconX, startY), textCol, icon);
+
+    float labelX = pos.x + (w - labelSz.x) * 0.5f;
+    float labelY = startY + iconSz.y + 4.0f * zm;
+    dl->AddText(font, fsz * 0.85f, ImVec2(labelX, labelY), textCol, label);
+}
+
+// ===================================================================
+// macOS Aqua-style Button (pill shape, gradient, gloss, glow)
+// ===================================================================
+
+static void DrawAquaButton(ImDrawList* dl, ImVec2 pos,
+                            float w, float h, float zm,
+                            ImU32 colTop, ImU32 colBot, ImU32 glowCol,
+                            ImU32 textCol, const char* label) {
+    ImVec2 p0 = pos, p1(pos.x + w, pos.y + h);
+    float rnd = h * 0.5f;
+
+    // Decompose colors
+    auto u8r = [](ImU32 c) -> int { return (int)(c & 0xFF); };
+    auto u8g = [](ImU32 c) -> int { return (int)((c >> 8) & 0xFF); };
+    auto u8b = [](ImU32 c) -> int { return (int)((c >> 16) & 0xFF); };
+
+    int tR = u8r(colTop), tG = u8g(colTop), tB = u8b(colTop);
+    int bR = u8r(colBot), bG = u8g(colBot), bB = u8b(colBot);
+
+    // --- Outer colored glow ---
+    {
+        int gR = u8r(glowCol), gG = u8g(glowCol), gB = u8b(glowCol);
+        constexpr int passes = 8;
+        constexpr float spread = 10.0f;
+        for (int i = passes; i >= 0; --i) {
+            float f = (float)i / (float)passes;
+            float ex = spread * f * zm;
+            int a = (int)(20.0f * (1.0f - f) * (1.0f - f));
+            dl->AddRectFilled(
+                ImVec2(p0.x - ex, p0.y - ex + 2.0f * zm),
+                ImVec2(p1.x + ex, p1.y + ex + 2.0f * zm),
+                IM_COL32(gR, gG, gB, a), rnd + ex);
+        }
+    }
+
+    // --- Body: base fill then horizontal gradient strips ---
+    dl->AddRectFilled(p0, p1, colBot, rnd);
+    {
+        float step = std::max(1.0f, zm);
+        for (float ly = 0.0f; ly < h; ly += step) {
+            float t = ly / h;
+            int r = bR + (int)((float)(tR - bR) * (1.0f - t));
+            int g = bG + (int)((float)(tG - bG) * (1.0f - t));
+            int b = bB + (int)((float)(tB - bB) * (1.0f - t));
+
+            float insetTop = AlumCornerInset(ly, rnd);
+            float insetBot = AlumCornerInset(h - ly - step, rnd);
+            float inset = std::max(insetTop, insetBot);
+
+            float lx0 = p0.x + inset;
+            float lx1 = p1.x - inset;
+            if (lx1 <= lx0) continue;
+
+            dl->AddRectFilled(
+                ImVec2(lx0, p0.y + ly),
+                ImVec2(lx1, p0.y + ly + step),
+                IM_COL32(r, g, b, 255));
+        }
+    }
+
+    // --- Top gloss (white -> transparent, upper ~45%) ---
+    {
+        float glossH = h * 0.45f;
+        float insetX = 4.0f * zm;
+        float glossRnd = rnd * 0.85f;
+        float step = std::max(1.0f, zm);
+        for (float ly = 0.0f; ly < glossH; ly += step) {
+            float t = ly / glossH;
+            int a = (int)(160.0f * (1.0f - t) * (1.0f - t));
+            if (a < 1) continue;
+
+            float dy_top = ly + 1.0f * zm;
+            float insetT = AlumCornerInset(dy_top, glossRnd);
+            float insetB = AlumCornerInset(glossH - ly, glossRnd);
+            float inset = std::max(insetT, insetB);
+
+            float lx0 = p0.x + insetX + inset;
+            float lx1 = p1.x - insetX - inset;
+            if (lx1 <= lx0) continue;
+
+            dl->AddRectFilled(
+                ImVec2(lx0, p0.y + 1.0f * zm + ly),
+                ImVec2(lx1, p0.y + 1.0f * zm + ly + step),
+                IM_COL32(255, 255, 255, a));
+        }
+    }
+
+    // --- Bottom glow (blurred colored reflection) ---
+    {
+        float glowTop = h * 0.72f;
+        float glowH = h * 0.22f;
+        int gR = u8r(glowCol), gG = u8g(glowCol), gB = u8b(glowCol);
+        constexpr int passes = 6;
+        constexpr float spread = 4.0f;
+        for (int i = passes; i >= 0; --i) {
+            float f = (float)i / (float)passes;
+            float ex = spread * f * zm;
+            int a = (int)(25.0f * (1.0f - f) * (1.0f - f));
+            float gy0 = p0.y + glowTop - ex;
+            float gy1 = p0.y + glowTop + glowH + ex;
+            float gx0 = p0.x + rnd * 0.3f - ex;
+            float gx1 = p1.x - rnd * 0.3f + ex;
+            dl->AddRectFilled(
+                ImVec2(gx0, gy0), ImVec2(gx1, gy1),
+                IM_COL32(gR, gG, gB, a), rnd * 0.5f);
+        }
+    }
+
+    // --- Text (centered) ---
+    ImFont* font = ImGui::GetFont();
+    float fsz = ImGui::GetFontSize() * 0.9f * zm;
+    ImVec2 tsz = font->CalcTextSizeA(fsz, FLT_MAX, 0, label);
+    float tx = p0.x + (w - tsz.x) * 0.5f;
+    float ty = p0.y + (h - tsz.y) * 0.5f;
+    dl->AddText(font, fsz, ImVec2(tx, ty), textCol, label);
+}
+
+// ===================================================================
 // Canvas panel (center) — pannable/zoomable workspace
 // ===================================================================
 
@@ -2165,15 +2535,75 @@ static void DrawCanvasPanel(const PanelLayout& zone, float dpi_scale) {
             dl->AddLine(ImVec2(p0.x, oy), ImVec2(p1.x, oy), axis_col, 1.0f);
     }
 
-    // --- Brushed aluminum panel (always visible, centered at origin) ---
+    // --- Brushed aluminum panels ---
     {
-        constexpr float kAlumW = 600.0f;
-        constexpr float kAlumH = 400.0f;
-        ImVec2 atl = w2s(-kAlumW * 0.5f, -kAlumH * 0.5f);
-        float aw = kAlumW * zm;
-        float ah = kAlumH * zm;
-        float arnd = 16.0f * zm;
-        DrawBrushedAluminumPanel(dl, atl, aw, ah, arnd, zm);
+        // Big panel (base layer, centered)
+        constexpr float kBigW = 1200.0f;
+        constexpr float kBigH = 800.0f;
+        ImVec2 btl = w2s(-kBigW * 0.5f, -kBigH * 0.5f);
+        DrawBrushedAluminumPanel(dl, btl, kBigW * zm, kBigH * zm, 16.0f * zm, zm);
+
+        // Aluminum buttons on big panel
+        constexpr float kBtnW = 120.0f;
+        constexpr float kBtnH = 90.0f;
+        constexpr float kBtnGap = 24.0f;
+        constexpr float kBtnRnd = 10.0f;
+
+        // Base hue: (75,90,120) = steel blue
+        // Variations: tweak lightness & saturation while keeping the hue
+        struct AlumBtn { const char* icon; const char* label; ImU32 col; };
+        AlumBtn btns[] = {
+            { ICON_FA_PLAY,   "\xd0\x97\xd0\xb0\xd0\xbf\xd1\x83\xd1\x81\xd0\xba",
+              IM_COL32(55, 68, 95, 255) },     // darker, more saturated
+            { ICON_FA_PAUSE,  "\xd0\x9f\xd0\xb0\xd1\x83\xd0\xb7\xd0\xb0",
+              IM_COL32(75, 90, 120, 255) },    // base
+            { ICON_FA_STOP,   "\xd0\xa1\xd1\x82\xd0\xbe\xd0\xbf",
+              IM_COL32(95, 112, 148, 255) },   // lighter, more saturated
+            { ICON_FA_SAVE,   "\xd0\xa1\xd0\xbe\xd1\x85\xd1\x80.",
+              IM_COL32(65, 78, 100, 255) },    // slightly darker
+            { ICON_FA_COG,    "\xd0\x9d\xd0\xb0\xd1\x81\xd1\x82\xd1\x80.",
+              IM_COL32(85, 98, 118, 255) },    // lighter, desaturated
+            { ICON_FA_SEARCH, "\xd0\x9f\xd0\xbe\xd0\xb8\xd1\x81\xd0\xba",
+              IM_COL32(110, 128, 165, 255) },  // lightest, most saturated
+        };
+        int nBtns = 6;
+        float totalBtnW = nBtns * kBtnW + (nBtns - 1) * kBtnGap;
+        float startX = -totalBtnW * 0.5f;
+        float btnY = -kBtnH * 0.5f;
+
+        for (int i = 0; i < nBtns; ++i) {
+            float bx = startX + (float)i * (kBtnW + kBtnGap);
+            ImVec2 btl2 = w2s(bx, btnY);
+            DrawAluminumButton(dl, btl2, kBtnW * zm, kBtnH * zm,
+                               kBtnRnd * zm, zm, btns[i].icon, btns[i].label,
+                               btns[i].col);
+        }
+
+        // Aqua-style buttons (second row, below steel buttons)
+        constexpr float kAquaW = 180.0f;
+        constexpr float kAquaH = 55.0f;
+        constexpr float kAquaGap = 30.0f;
+        float aquaRow = btnY + kBtnH + 40.0f;
+        float aquaTotalW = kAquaW * 2.0f + kAquaGap;
+        float aquaStartX = -aquaTotalW * 0.5f;
+
+        // Warm (peach)
+        ImVec2 aq1 = w2s(aquaStartX, aquaRow);
+        DrawAquaButton(dl, aq1, kAquaW * zm, kAquaH * zm, zm,
+                       IM_COL32(231, 178, 161, 255),
+                       IM_COL32(247, 243, 224, 255),
+                       IM_COL32(235, 200, 180, 255),
+                       IM_COL32(160, 110, 80, 255),
+                       "Aqua Warm");
+
+        // Cool (lavender)
+        ImVec2 aq2 = w2s(aquaStartX + kAquaW + kAquaGap, aquaRow);
+        DrawAquaButton(dl, aq2, kAquaW * zm, kAquaH * zm, zm,
+                       IM_COL32(184, 174, 236, 255),
+                       IM_COL32(221, 238, 251, 255),
+                       IM_COL32(200, 195, 240, 255),
+                       IM_COL32(80, 70, 150, 255),
+                       "Aqua Cool");
     }
 
     // --- Widget preview background (in world space, clipped) ---
