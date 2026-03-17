@@ -1,0 +1,26 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default (Ninja)",
+      "binaryDir": "${sourceDir}/_build",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/toolchain/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_OVERLAY_PORTS": "${sourceDir}/overlay-ports"
+      }
+    },
+    {
+      "name": "vs2026",
+      "displayName": "Visual Studio 18 2026 x64",
+      "inherits": "default",
+      "generator": "Visual Studio 18 2026",
+      "architecture": { "value": "x64", "strategy": "set" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "debug",   "configurePreset": "vs2026", "configuration": "Debug" },
+    { "name": "release", "configurePreset": "vs2026", "configuration": "Release" }
+  ]
+}

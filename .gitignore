@@ -41,6 +41,7 @@
 *.dwo
 
 _build/
+CMakeUserPresets.json
 build/
 build_sandbox/
 logs/
