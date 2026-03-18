@@ -7,8 +7,7 @@
       "displayName": "Default (Ninja)",
       "binaryDir": "${sourceDir}/_build",
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/toolchain/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_OVERLAY_PORTS": "${sourceDir}/overlay-ports"
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/toolchain/vcpkg/scripts/buildsystems/vcpkg.cmake"
       }
     },
     {
