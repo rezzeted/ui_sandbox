@@ -284,7 +284,7 @@ inline void ApplyStyle(float scale) {
     style.Colors[ImGuiCol_TableRowBgAlt]        = ImVec4(1, 1, 1, 0.04f);
 
     style.Colors[ImGuiCol_DragDropTarget]       = AccentSecondary;
-    style.Colors[ImGuiCol_NavHighlight]         = AccentPrimary;
+    style.Colors[ImGuiCol_NavCursor]            = AccentPrimary;
 
     style.WindowPadding     = ImVec2(12.0f * scale, 12.0f * scale);
     style.FramePadding      = ImVec2(10.0f * scale, 7.0f * scale);

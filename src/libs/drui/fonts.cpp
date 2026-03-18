@@ -73,7 +73,13 @@ static ImFont* LoadFontLadder(ImGuiIO& io, const char* path,
 namespace DrUI {
 
 ImFont* SetupFonts(ImGuiIO& io, float dpi_scale) {
-    const ImWchar* cyrillic_ranges = io.Fonts->GetGlyphRangesCyrillic();
+    static const ImWchar cyrillic_ranges[] = {
+        0x0020, 0x00FF, // Basic Latin + Latin Supplement
+        0x0400, 0x052F, // Cyrillic + Cyrillic Supplement
+        0x2DE0, 0x2DFF, // Cyrillic Extended-A
+        0xA640, 0xA69F, // Cyrillic Extended-B
+        0,
+    };
 
     ImFontConfig cfg{};
     cfg.OversampleH = 2;

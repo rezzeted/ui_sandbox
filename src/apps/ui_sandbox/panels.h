@@ -2663,10 +2663,11 @@ static void DrawCanvasPanel(const PanelLayout& zone, float dpi_scale) {
                 child_flags |= ImGuiWindowFlags_NoScrollWithMouse;
             ImGui::BeginChild("##preview_content", ImVec2(cw, ch),
                               false, child_flags);
-            ImGui::SetWindowFontScale(zm);
+            ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * zm);
 
             DrawWidgetPreview(g_selected_widget, dpi_scale * zm);
 
+            ImGui::PopFont();
             ImGui::EndChild();
             ImGui::PopStyleVar(5);
         }

@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
 
     ImFont* default_font = DrUI::SetupFonts(io, font_scale);
     if (default_font) io.FontDefault = default_font;
-    io.FontGlobalScale = 1.0f / fb_scale;
+    ImGui::GetStyle().FontScaleMain = 1.0f / fb_scale;
 
     DrUI::ApplyTheme(DrUI::ThemeId::Dark, dpi_scale);
 
