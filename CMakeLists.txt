@@ -19,6 +19,9 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 # --- Dependencies (vcpkg) ---------------------------------------------------
 find_package(glfw3 CONFIG REQUIRED)
+# Required by imgui with opengl3-slang-binding
+find_package(slang CONFIG REQUIRED)
+find_package(gl3w CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(Catch2 CONFIG REQUIRED)

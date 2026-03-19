@@ -6,7 +6,7 @@
     {
       "name":"imgui",
       "platform": "windows",  
-      "features": [ "opengl3-binding", "win32-binding", "glfw-binding", "freetype", "docking-experimental", "disable-obsolete" ]
+      "features": [ "opengl3-binding", "opengl3-slang-binding", "win32-binding", "glfw-binding", "freetype", "docking-experimental", "disable-obsolete" ]
     },
     "spdlog",
     "catch2",

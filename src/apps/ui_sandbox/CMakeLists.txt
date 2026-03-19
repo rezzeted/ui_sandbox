@@ -4,7 +4,7 @@ target_compile_features(ui_sandbox PRIVATE cxx_std_20)
 
 target_include_directories(ui_sandbox PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(ui_sandbox PRIVATE drui)
+target_link_libraries(ui_sandbox PRIVATE drui unofficial::gl3w::gl3w)
 
 # Copy font resources next to the executable so relative paths work.
 set(FONT_RESOURCES_DIR "${CMAKE_SOURCE_DIR}/resources/fonts")
