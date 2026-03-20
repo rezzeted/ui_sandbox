@@ -18,6 +18,8 @@
 
 Демо **figma_fill**: параметры заливки, палитра и поля для интеграции с макетом описаны в **`docs/FIGMA_GRADIENT.md`**.
 
+Встроенные демо-эффекты и хелперы вынесены в статическую библиотеку **`ui_sandbox_effects`** (`#include <ui_sandbox_effects/ui_sandbox_effects.hpp>`). План развития библиотеки: **`docs/EFFECTS_LIBRARY_ROADMAP.md`**.
+
 ## Контракт API: `EffectHandle`
 
 - **`EffectHandle`** = `{ id, generation }`. **`id`** стабилен на всё время жизни эффекта; **`generation`** увеличивается после **успешного** `ReloadEffect` / авто-reload.

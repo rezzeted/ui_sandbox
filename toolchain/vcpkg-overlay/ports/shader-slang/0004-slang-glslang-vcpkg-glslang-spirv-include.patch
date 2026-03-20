@@ -1,0 +1,10 @@
+diff --git a/source/slang-glslang/slang-glslang.cpp b/source/slang-glslang/slang-glslang.cpp
+--- a/source/slang-glslang/slang-glslang.cpp
++++ b/source/slang-glslang/slang-glslang.cpp
+@@ -3,5 +3,5 @@
+ 
+-#include "SPIRV/GlslangToSpv.h"
++#include "glslang/SPIRV/GlslangToSpv.h"
+ #include "glslang/Public/ShaderLang.h"
+ #include "slang.h"
+ #include "spirv-tools/libspirv.h"

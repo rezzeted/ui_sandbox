@@ -1,0 +1,27 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -527,16 +527,21 @@ if(${SLANG_USE_SYSTEM_VULKAN_HEADERS})
+ if(${SLANG_USE_SYSTEM_VULKAN_HEADERS})
+     find_package(VulkanHeaders REQUIRED)
+ endif()
+ 
+ if(${SLANG_USE_SYSTEM_SPIRV_TOOLS})
+-    find_package(SPIRV-Tools REQUIRED)
++    find_package(SPIRV-Tools CONFIG REQUIRED)
++    find_package(SPIRV-Tools-opt CONFIG REQUIRED)
++    find_package(SPIRV-Tools-link CONFIG REQUIRED)
+ endif()
+ 
+ if(${SLANG_USE_SYSTEM_GLSLANG})
+-    find_package(glslang REQUIRED)
++    find_package(glslang CONFIG REQUIRED)
+     if(NOT TARGET glslang)
+         add_library(glslang ALIAS glslang::glslang)
+     endif()
++    if(TARGET glslang::SPIRV AND NOT TARGET SPIRV)
++        add_library(SPIRV ALIAS glslang::SPIRV)
++    endif()
+ endif()
+ 
+ add_subdirectory(external)

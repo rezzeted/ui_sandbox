@@ -14,8 +14,8 @@ set(SOURCE_PATH "${CURRENT_BUILDTREES_DIR}/src/shader-slang-git")
 
 vcpkg_find_acquire_program(GIT)
 
-# Marker file: miniz is always a submodule under external/
-set(SLANG_SUBMODULE_STAMP "${SOURCE_PATH}/external/miniz/CMakeLists.txt")
+# Marker: cmark stays in-tree (no SLANG_USE_SYSTEM_CMARK upstream); miniz/lz4/SPIR-V/glslang come from vcpkg.
+set(SLANG_SUBMODULE_STAMP "${SOURCE_PATH}/external/cmark/CMakeLists.txt")
 if(NOT EXISTS "${SLANG_SUBMODULE_STAMP}")
     file(REMOVE_RECURSE "${SOURCE_PATH}")
     file(MAKE_DIRECTORY "${SOURCE_PATH}")
@@ -54,6 +54,8 @@ if(NOT EXISTS "${SLANG_SUBMODULE_STAMP}")
         SOURCE_PATH "${SOURCE_PATH}"
         PATCHES
             0002-slangc-no-memleak-assert.patch
+            0003-vcpkg-system-glslang-spirv-targets.patch
+            0004-slang-glslang-vcpkg-glslang-spirv-include.patch
     )
 endif()
 
@@ -76,6 +78,15 @@ vcpkg_cmake_configure(
         -DSLANG_SLANG_LLVM_FLAVOR=DISABLE
         -DSLANG_ENABLE_CUDA=OFF
         -DSLANG_ENABLE_OPTIX=OFF
+        # Deps from vcpkg (skip building copies under external/ where supported)
+        -DSLANG_USE_SYSTEM_MINIZ=ON
+        -DSLANG_USE_SYSTEM_LZ4=ON
+        -DSLANG_USE_SYSTEM_UNORDERED_DENSE=ON
+        -DSLANG_USE_SYSTEM_VULKAN_HEADERS=ON
+        -DSLANG_USE_SYSTEM_SPIRV_HEADERS=ON
+        -DSLANG_USE_SYSTEM_SPIRV_TOOLS=ON
+        -DSLANG_USE_SYSTEM_GLSLANG=ON
+        -DSLANG_ENABLE_SPIRV_TOOLS_MIMALLOC=OFF
 )
 
 vcpkg_cmake_install(ADD_BIN_TO_PATH)
@@ -105,8 +116,6 @@ function(z_shader_slang_install_external_libs cfg_suffix cmake_cfg dest_lib_dir)
         IN
         ITEMS
         external/cmark/src/cmark-gfm.lib
-        external/miniz/miniz.lib
-        external/lz4/build/cmake/lz4.lib
     )
         set(_extlib "${_bt}/${_relpath}")
         if(EXISTS "${_extlib}")

@@ -1,7 +1,7 @@
 {
   "name": "shader-slang",
   "version-string": "80c30664",
-  "port-version": 6,
+  "port-version": 7,
   "description": "Slang built from github.com/shader-slang/slang at pinned commit (ui_sandbox overlay). Use with triplet x64-windows-static and overlay path …/toolchain/vcpkg-overlay/ports.",
   "homepage": "https://github.com/shader-slang/slang",
   "license": null,
@@ -14,6 +14,17 @@
     {
       "name": "vcpkg-cmake-config",
       "host": true
-    }
+    },
+    "lz4",
+    "miniz",
+    "unordered-dense",
+    "spirv-headers",
+    "spirv-tools",
+    {
+      "name": "glslang",
+      "default-features": false,
+      "features": [ "opt" ]
+    },
+    "vulkan-headers"
   ]
 }
