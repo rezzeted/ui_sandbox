@@ -28,6 +28,7 @@ enum class WidgetType {
 };
 
 static WidgetType g_selected_widget = WidgetType::None;
+static void DrawAluminumShowcaseTab(float dpi_scale);
 
 // ===================================================================
 // Main menu bar
@@ -57,6 +58,7 @@ static void DrawMainMenuBar(PanelVisibility& panels) {
     if (ImGui::BeginMenu(ICON_FA_EYE "  \xd0\x92\xd0\xb8\xd0\xb4")) {
         ImGui::MenuItem(ICON_FA_COG " \xd0\x92\xd0\xb8\xd0\xb4\xd0\xb6\xd0\xb5\xd1\x82\xd1\x8b", nullptr, &panels.tab_widgets);
         ImGui::MenuItem(ICON_FA_BOLT " Custom", nullptr, &panels.tab_custom);
+        ImGui::MenuItem(ICON_FA_CUBE " Aluminum", nullptr, &panels.tab_aluminum);
         ImGui::Separator();
         ImGui::MenuItem(ICON_FA_BARS " \xd0\xa1\xd1\x82\xd1\x80\xd0\xbe\xd0\xba\xd0\xb0 \xd1\x81\xd0\xbe\xd1\x81\xd1\x82\xd0\xbe\xd1\x8f\xd0\xbd\xd0\xb8\xd1\x8f", nullptr, &panels.status_bar);
         ImGui::Separator();
@@ -1396,6 +1398,10 @@ static void DrawLeftPanel(const PanelLayout& zone, float dpi_scale,
             DrawSkeuomorphTab(dpi_scale);
             ImGui::EndTabItem();
         }
+        if (panels.tab_aluminum && ImGui::BeginTabItem(ICON_FA_CUBE " Aluminum", &panels.tab_aluminum)) {
+            DrawAluminumShowcaseTab(dpi_scale);
+            ImGui::EndTabItem();
+        }
         ImGui::EndTabBar();
     }
 
@@ -2403,6 +2409,79 @@ static void DrawAquaButton(ImDrawList* dl, ImVec2 pos,
     dl->AddText(font, fsz, ImVec2(tx, ty), textCol, label);
 }
 
+static void DrawAluminumShowcaseTab(float dpi_scale) {
+    ImGui::TextDisabled(ICON_FA_CUBE " Aluminum panel + buttons");
+    DrUI::GradientSeparator();
+    ImGui::TextUnformatted("Standard and glass buttons are separated by a divider.");
+    ImGui::Separator();
+
+    ImGui::BeginChild("##aluminum_tab_scroll", ImVec2(0, 0), false);
+
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+    float canvas_h = std::max(420.0f * dpi_scale, avail.y - 8.0f * dpi_scale);
+    ImVec2 p0 = ImGui::GetCursorScreenPos();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    dl->AddRectFilled(p0, ImVec2(p0.x + avail.x, p0.y + canvas_h),
+                      ImGui::ColorConvertFloat4ToU32(DrUI::Colors::CanvasBg),
+                      8.0f * dpi_scale);
+    ImGui::InvisibleButton("##aluminum_canvas", ImVec2(avail.x, canvas_h));
+
+    float panel_w = std::min(avail.x - 24.0f * dpi_scale, 620.0f * dpi_scale);
+    float panel_h = std::min(canvas_h - 24.0f * dpi_scale, 360.0f * dpi_scale);
+    panel_w = std::max(panel_w, 260.0f * dpi_scale);
+    panel_h = std::max(panel_h, 220.0f * dpi_scale);
+    ImVec2 panel_tl(p0.x + (avail.x - panel_w) * 0.5f, p0.y + (canvas_h - panel_h) * 0.5f);
+    DrawBrushedAluminumPanel(dl, panel_tl, panel_w, panel_h, 14.0f * dpi_scale, 1.0f);
+
+    struct AlumBtn { const char* icon; const char* label; ImU32 col; };
+    AlumBtn btns[] = {
+        { ICON_FA_PLAY,   "\xd0\x97\xd0\xb0\xd0\xbf\xd1\x83\xd1\x81\xd0\xba", IM_COL32(55, 68, 95, 255) },
+        { ICON_FA_PAUSE,  "\xd0\x9f\xd0\xb0\xd1\x83\xd0\xb7\xd0\xb0",         IM_COL32(75, 90, 120, 255) },
+        { ICON_FA_STOP,   "\xd0\xa1\xd1\x82\xd0\xbe\xd0\xbf",                 IM_COL32(95, 112, 148, 255) },
+        { ICON_FA_SAVE,   "\xd0\xa1\xd0\xbe\xd1\x85\xd1\x80.",                IM_COL32(65, 78, 100, 255) },
+        { ICON_FA_COG,    "\xd0\x9d\xd0\xb0\xd1\x81\xd1\x82\xd1\x80.",        IM_COL32(85, 98, 118, 255) },
+        { ICON_FA_SEARCH, "\xd0\x9f\xd0\xbe\xd0\xb8\xd1\x81\xd0\xba",         IM_COL32(110, 128, 165, 255) },
+    };
+
+    float inner_pad = 24.0f * dpi_scale;
+    float content_w = panel_w - inner_pad * 2.0f;
+    const int cols = 3;
+    const int rows = 2;
+    float btn_gap = 12.0f * dpi_scale;
+    float btn_w = (content_w - btn_gap * (cols - 1)) / cols;
+    float btn_h = 70.0f * dpi_scale;
+    float grid_top = panel_tl.y + inner_pad;
+
+    for (int i = 0; i < 6; ++i) {
+        int col = i % cols;
+        int row = i / cols;
+        ImVec2 bpos(panel_tl.x + inner_pad + col * (btn_w + btn_gap),
+                    grid_top + row * (btn_h + btn_gap));
+        DrawAluminumButton(dl, bpos, btn_w, btn_h, 8.0f * dpi_scale, 1.0f,
+                           btns[i].icon, btns[i].label, btns[i].col);
+    }
+
+    float grid_h = rows * btn_h + (rows - 1) * btn_gap;
+    float sep_y = grid_top + grid_h + 16.0f * dpi_scale;
+    dl->AddLine(ImVec2(panel_tl.x + inner_pad, sep_y),
+                ImVec2(panel_tl.x + panel_w - inner_pad, sep_y),
+                IM_COL32(255, 255, 255, 90), 1.0f);
+
+    float aqua_gap = 16.0f * dpi_scale;
+    float aqua_w = (content_w - aqua_gap) * 0.5f;
+    float aqua_h = 56.0f * dpi_scale;
+    float aqua_y = sep_y + 14.0f * dpi_scale;
+
+    DrawAquaButton(dl, ImVec2(panel_tl.x + inner_pad, aqua_y), aqua_w, aqua_h, 1.0f,
+                   IM_COL32(231, 178, 161, 255), IM_COL32(247, 243, 224, 255),
+                   IM_COL32(235, 200, 180, 255), IM_COL32(160, 110, 80, 255), "Aqua Warm");
+    DrawAquaButton(dl, ImVec2(panel_tl.x + inner_pad + aqua_w + aqua_gap, aqua_y), aqua_w, aqua_h, 1.0f,
+                   IM_COL32(184, 174, 236, 255), IM_COL32(221, 238, 251, 255),
+                   IM_COL32(200, 195, 240, 255), IM_COL32(80, 70, 150, 255), "Aqua Cool");
+
+    ImGui::EndChild();
+}
+
 // ===================================================================
 // Canvas panel (center) — pannable/zoomable workspace
 // ===================================================================
@@ -2533,77 +2612,6 @@ static void DrawCanvasPanel(const PanelLayout& zone, float dpi_scale) {
             dl->AddLine(ImVec2(ox, p0.y), ImVec2(ox, p1.y), axis_col, 1.0f);
         if (oy > p0.y && oy < p1.y)
             dl->AddLine(ImVec2(p0.x, oy), ImVec2(p1.x, oy), axis_col, 1.0f);
-    }
-
-    // --- Brushed aluminum panels ---
-    {
-        // Big panel (base layer, centered)
-        constexpr float kBigW = 1200.0f;
-        constexpr float kBigH = 800.0f;
-        ImVec2 btl = w2s(-kBigW * 0.5f, -kBigH * 0.5f);
-        DrawBrushedAluminumPanel(dl, btl, kBigW * zm, kBigH * zm, 16.0f * zm, zm);
-
-        // Aluminum buttons on big panel
-        constexpr float kBtnW = 120.0f;
-        constexpr float kBtnH = 90.0f;
-        constexpr float kBtnGap = 24.0f;
-        constexpr float kBtnRnd = 10.0f;
-
-        // Base hue: (75,90,120) = steel blue
-        // Variations: tweak lightness & saturation while keeping the hue
-        struct AlumBtn { const char* icon; const char* label; ImU32 col; };
-        AlumBtn btns[] = {
-            { ICON_FA_PLAY,   "\xd0\x97\xd0\xb0\xd0\xbf\xd1\x83\xd1\x81\xd0\xba",
-              IM_COL32(55, 68, 95, 255) },     // darker, more saturated
-            { ICON_FA_PAUSE,  "\xd0\x9f\xd0\xb0\xd1\x83\xd0\xb7\xd0\xb0",
-              IM_COL32(75, 90, 120, 255) },    // base
-            { ICON_FA_STOP,   "\xd0\xa1\xd1\x82\xd0\xbe\xd0\xbf",
-              IM_COL32(95, 112, 148, 255) },   // lighter, more saturated
-            { ICON_FA_SAVE,   "\xd0\xa1\xd0\xbe\xd1\x85\xd1\x80.",
-              IM_COL32(65, 78, 100, 255) },    // slightly darker
-            { ICON_FA_COG,    "\xd0\x9d\xd0\xb0\xd1\x81\xd1\x82\xd1\x80.",
-              IM_COL32(85, 98, 118, 255) },    // lighter, desaturated
-            { ICON_FA_SEARCH, "\xd0\x9f\xd0\xbe\xd0\xb8\xd1\x81\xd0\xba",
-              IM_COL32(110, 128, 165, 255) },  // lightest, most saturated
-        };
-        int nBtns = 6;
-        float totalBtnW = nBtns * kBtnW + (nBtns - 1) * kBtnGap;
-        float startX = -totalBtnW * 0.5f;
-        float btnY = -kBtnH * 0.5f;
-
-        for (int i = 0; i < nBtns; ++i) {
-            float bx = startX + (float)i * (kBtnW + kBtnGap);
-            ImVec2 btl2 = w2s(bx, btnY);
-            DrawAluminumButton(dl, btl2, kBtnW * zm, kBtnH * zm,
-                               kBtnRnd * zm, zm, btns[i].icon, btns[i].label,
-                               btns[i].col);
-        }
-
-        // Aqua-style buttons (second row, below steel buttons)
-        constexpr float kAquaW = 180.0f;
-        constexpr float kAquaH = 55.0f;
-        constexpr float kAquaGap = 30.0f;
-        float aquaRow = btnY + kBtnH + 40.0f;
-        float aquaTotalW = kAquaW * 2.0f + kAquaGap;
-        float aquaStartX = -aquaTotalW * 0.5f;
-
-        // Warm (peach)
-        ImVec2 aq1 = w2s(aquaStartX, aquaRow);
-        DrawAquaButton(dl, aq1, kAquaW * zm, kAquaH * zm, zm,
-                       IM_COL32(231, 178, 161, 255),
-                       IM_COL32(247, 243, 224, 255),
-                       IM_COL32(235, 200, 180, 255),
-                       IM_COL32(160, 110, 80, 255),
-                       "Aqua Warm");
-
-        // Cool (lavender)
-        ImVec2 aq2 = w2s(aquaStartX + kAquaW + kAquaGap, aquaRow);
-        DrawAquaButton(dl, aq2, kAquaW * zm, kAquaH * zm, zm,
-                       IM_COL32(184, 174, 236, 255),
-                       IM_COL32(221, 238, 251, 255),
-                       IM_COL32(200, 195, 240, 255),
-                       IM_COL32(80, 70, 150, 255),
-                       "Aqua Cool");
     }
 
     // --- Widget preview background (in world space, clipped) ---
