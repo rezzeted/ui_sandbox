@@ -7,7 +7,7 @@
 | Компонент | Путь | Назначение |
 |-----------|------|------------|
 | Публичный вход | `src/libs/ui_sandbox_effects/include/ui_sandbox_effects/ui_sandbox_effects.hpp` | Единая точка `#include` |
-| Slang-тексты | `include/.../shaders.hpp`, `shaders.cpp` | API строк Slang; исходники лежат в **`src/libs/ui_sandbox_shaders/shaders/`** (`imgui_post_vertex.slang`, `post/*.slang`), в бинарь встраиваются через **cmakerc** (таргет `ui_sandbox_shaders_rc` / `ui_sandbox::shaders_rc`) |
+| Slang-тексты | `shaders.hpp` / `shaders.cpp`, `builtin_effect_specs.hpp`, `shader_manifest.cmake` | Исходники в **`src/libs/ui_sandbox_shaders/shaders/`**; список фрагментов для CMRC/verify — **`shader_manifest.cmake`**; метаданные эффектов — **`kBuiltinEffectSpecs`**. Режим диска: bundle + **`TickAutoReload`** (см. `docs/EFFECTS.md`). |
 | Реестр | `registry.hpp` / `registry.cpp` | `register_builtin_effects(EffectSystem&)` |
 | Figma | `figma.hpp`, `figma_gradient.cpp` | UBO, палитра GL, affine UV |
 | Превью | `preview.hpp` / `preview.cpp` | `draw_effect_preview_quads` |
@@ -27,7 +27,7 @@
    - **Версионирование имён:** при несовместимом UBO добавлять суффикс (`grayscale_v2`) или отдельное имя; `register_builtin_effects` документировать как «полный набор демо», опционально разбить на `register_builtin_post_effects` / `register_figma_fill_only`.
 
 2. **Исходники шейдеров**
-   - Файлы `.slang` в репозитории + **CMakeRC (порт `cmakerc`)**: отдельная цель `ui_sandbox_shaders_rc`. Для новых пост-эффектов — добавить `post/<имя>.slang`, зарегистрировать файл в `src/libs/ui_sandbox_shaders/CMakeLists.txt`, вернуть строку из `shaders.cpp` через `post_effect_from_frag_path` (или расширить общий хелпер).
+   - Файлы `.slang` в репозитории + **CMakeRC (`cmakerc`)** → `ui_sandbox_shaders_rc`; общие биндинги простых эффектов — **`post/_post_common.slang`**. Опция **`UI_SANDBOX_SHADERS_LOAD_FROM_DISK`** — загрузка с диска без CMRC; **`UI_SANDBOX_VERIFY_SLANG_SHADERS`** — проверка компиляцией `slangc` при сборке. Пошаговый чеклист: **`docs/EFFECTS.md`** («Встроенные пост-шейдеры»).
 
 3. **Figma / дизайн-токены**
    - Опциональный слой: разбор экспорта (JSON) → заполнение `FigmaUnifiedGradientUBO` + палитра (без обязательной зависимости от JSON в ядре библиотеки — отдельный модуль/опция CMake).

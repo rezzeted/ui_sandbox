@@ -1,9 +1,26 @@
 add_library(ui_sandbox_effects
     shaders.cpp
+    shader_disk_io.cpp
+    hotreload.cpp
     figma_gradient.cpp
     registry.cpp
     preview.cpp
 )
+
+get_filename_component(_ui_sandbox_shader_tree "${CMAKE_CURRENT_SOURCE_DIR}/../ui_sandbox_shaders/shaders" ABSOLUTE)
+if(UI_SANDBOX_SHADERS_LOAD_FROM_DISK)
+    # Forward slashes — std::filesystem accepts them on Windows
+    file(TO_CMAKE_PATH "${_ui_sandbox_shader_tree}" UI_SANDBOX_SHADER_ROOT)
+    file(TO_CMAKE_PATH "${CMAKE_BINARY_DIR}/ui_sandbox_shader_bundles" UI_SANDBOX_SHADER_BUNDLE_DIR)
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/ui_sandbox_shader_bundles")
+    configure_file(
+        shader_sources_config.hpp.in
+        "${CMAKE_CURRENT_BINARY_DIR}/shader_sources_config.hpp"
+        @ONLY
+    )
+    target_include_directories(ui_sandbox_effects PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(ui_sandbox_effects PRIVATE UI_SANDBOX_SHADERS_LOAD_FROM_DISK=1)
+endif()
 
 target_include_directories(ui_sandbox_effects PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include

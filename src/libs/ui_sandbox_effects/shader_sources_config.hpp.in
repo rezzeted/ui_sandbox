@@ -1,0 +1,6 @@
+#pragma once
+/** Root dir with imgui_post_vertex.slang and post/ (forward slashes, absolute). */
+#define UI_SANDBOX_SHADER_SOURCE_ROOT "@UI_SANDBOX_SHADER_ROOT@"
+
+/** Writable bundle .slang files for EffectSystem shaderFile + TickAutoReload (forward slashes). */
+#define UI_SANDBOX_SHADER_BUNDLE_DIR "@UI_SANDBOX_SHADER_BUNDLE_DIR@"

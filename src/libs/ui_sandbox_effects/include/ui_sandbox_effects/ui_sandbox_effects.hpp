@@ -5,5 +5,6 @@
 
 #include "ui_sandbox_effects/shaders.hpp"
 #include "ui_sandbox_effects/figma.hpp"
+#include "ui_sandbox_effects/hotreload.hpp"
 #include "ui_sandbox_effects/registry.hpp"
 #include "ui_sandbox_effects/preview.hpp"

@@ -98,6 +98,8 @@ int main() {
     ImTextureID whiteTexImId = builtinTextures.White1x1();
 
     fx::register_builtin_effects(effectSystem);
+    if (fx::post_shaders_disk_mode_enabled())
+        effectSystem.SetAutoReloadShaders(true);
 
     GLuint figma_palette_gl = 0;
     glGenTextures(1, &figma_palette_gl);
@@ -160,6 +162,8 @@ int main() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         effectSystem.NotifyAfterImGuiNewFrame();
+        if (fx::post_shaders_disk_mode_enabled())
+            fx::refresh_post_effect_bundles_for_hotreload();
         effectSystem.TickAutoReload(ImGui::GetIO().DeltaTime);
 
         ImGuiRenderUX::EffectHandle grayscaleEffect = effectSystem.FindEffectByName("grayscale");

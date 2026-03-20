@@ -1,5 +1,3 @@
-[[vk::binding(0)]] Sampler2D Texture_0;
-
 struct EffectParams {
     float uMix;
     float3 _pad;

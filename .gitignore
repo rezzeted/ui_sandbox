@@ -41,6 +41,7 @@
 *.dwo
 
 _build/
+_build_disktest/
 CMakeUserPresets.json
 build/
 build_sandbox/

@@ -77,6 +77,26 @@
 - По умолчанию используются функции **gl3w** из этого TU.
 - **`BuiltinGpuTextures::SetTextureProcs(&procs)`** — подставить свои `GenTextures` / `DeleteTextures` / `BindTexture` / `TexParameteri` / `TexImage2D` (аргументы как `unsigned` для GL enum), если не хотите тянуть gl3w в отдельной единице трансляции (**nullptr** = снова встроенный gl3w).
 
+## Встроенные пост-шейдеры (`ui_sandbox_shaders`)
+
+Исходники: **`src/libs/ui_sandbox_shaders/shaders/`** — `imgui_post_vertex.slang`, общий префикс привязок **`post/_post_common.slang`**, фрагменты **`post/*.slang`**. В релизе по умолчанию они вшиваются через **CMRC** (таргет `ui_sandbox_shaders_rc`).
+
+**Один список файлов для CMake:** `src/libs/ui_sandbox_shaders/shader_manifest.cmake` — переменные **`UI_SANDBOX_SHADER_POST_EFFECTS_WITH_COMMON`** и **`UI_SANDBOX_SHADER_POST_EFFECTS_STANDALONE`**; по ним собираются CMRC, `slangc`-verify и ожидаемые имена `post/<имя>.slang`.
+
+Метаданные эффектов (имя, stem, общий `_post_common`, размер UBO): **`include/ui_sandbox_effects/builtin_effect_specs.hpp`** (`kBuiltinEffectSpecs`) — держите согласованно с манифестом.
+
+**Чеклист нового пост-эффекта**
+
+1. Добавить **`post/<имя>.slang`** (для «простых» эффектов не дублировать `Texture_0` — он в `_post_common.slang`).
+2. Добавить **`<имя>`** в **`shader_manifest.cmake`** (в нужный список: с общим префиксом или standalone).
+3. Добавить запись в **`kBuiltinEffectSpecs`** (`builtin_effect_specs.hpp`).
+4. При необходимости — публичная обёртка в **`shaders.hpp` / `shaders.cpp`** (`*_effect_slang()`).
+
+**Опции CMake**
+
+- **`UI_SANDBOX_SHADERS_LOAD_FROM_DISK`** — читать дерево шейдеров с диска; регистрация через **`CreateEffectFromFile`** на сгенерированные **bundle**-файлы под **`${CMAKE_BINARY_DIR}/ui_sandbox_shader_bundles/`**. В **`ui_sandbox`** перед **`TickAutoReload`** вызываются **`refresh_post_effect_bundles_for_hotreload()`** и **`SetAutoReloadShaders(true)`** (см. `main.cpp`): при сохранении `imgui_post_vertex.slang`, `_post_common.slang` или `post/*.slang` bundle обновляется, **`TickAutoReload`** подхватывает mtime и перекомпилирует эффект. Ошибки чтения — сообщение в **stderr**, без **`abort`**.
+- **`UI_SANDBOX_VERIFY_SLANG_SHADERS`** — при сборке прогон **`slangc`** по каждому бандлу (vertex + common + fragment), см. таргет **`ui_sandbox_verify_shaders`**.
+
 ## Отладка
 
 - Окно **`ShowDebugWindow`**: статистика, в т.ч. **`capturesSkippedStaleHandle`** (токен устарел до submit).

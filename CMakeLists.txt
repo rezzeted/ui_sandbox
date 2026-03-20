@@ -9,6 +9,10 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 project(UiSandbox VERSION 0.1.0 LANGUAGES CXX)
 
 option(UI_SANDBOX_BUILD_APPS "Build applications." ON)
+option(UI_SANDBOX_SHADERS_LOAD_FROM_DISK
+    "Dev: load embedded post shaders from ui_sandbox_shaders/shaders on disk instead of CMRC (restart app to refresh)." OFF)
+option(UI_SANDBOX_VERIFY_SLANG_SHADERS
+    "Build: run slangc on each post-effect shader bundle (vertex + optional common + fragment)." ON)
 
 # Basic C++ settings
 set(CMAKE_CXX_STANDARD 20)
