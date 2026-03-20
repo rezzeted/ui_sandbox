@@ -33,6 +33,7 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(Catch2 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
+find_package(cmakerc CONFIG REQUIRED)
 
 # MicroPather (no vcpkg port — fetch from GitHub)
 include(FetchContent)

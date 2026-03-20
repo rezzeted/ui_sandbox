@@ -2,6 +2,7 @@
   "name": "ui-sandbox",
   "version-string": "0.1.0",
   "dependencies": [
+    "cmakerc",
     "glfw3",
     {
       "name":"imgui",

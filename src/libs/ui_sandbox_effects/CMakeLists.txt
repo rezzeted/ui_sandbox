@@ -11,7 +11,11 @@ target_include_directories(ui_sandbox_effects PUBLIC
 
 target_compile_features(ui_sandbox_effects PUBLIC cxx_std_20)
 
-target_link_libraries(ui_sandbox_effects PUBLIC imgui::imgui unofficial::gl3w::gl3w)
+target_link_libraries(ui_sandbox_effects PUBLIC
+    imgui::imgui
+    unofficial::gl3w::gl3w
+    ui_sandbox::shaders_rc
+)
 
 if(WIN32)
     target_link_libraries(ui_sandbox_effects PUBLIC opengl32)
