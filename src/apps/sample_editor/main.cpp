@@ -65,12 +65,19 @@ int main(int argc, char* argv[]) {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
     ImFont* default_font = DrUI::SetupFonts(io, font_scale);
     if (default_font) io.FontDefault = default_font;
     ImGui::GetStyle().FontScaleMain = 1.0f / fb_scale;
 
     DrUI::ApplyTheme(DrUI::ThemeId::Dark, dpi_scale);
+
+    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+        ImGuiStyle& style = ImGui::GetStyle();
+        style.WindowRounding = 0.0f;
+        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+    }
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
@@ -90,6 +97,10 @@ int main(int argc, char* argv[]) {
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
+        if (glfwGetWindowAttrib(window, GLFW_ICONIFIED)) {
+            ImGui_ImplGlfw_Sleep(10);
+            continue;
+        }
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -122,6 +133,14 @@ int main(int argc, char* argv[]) {
                      DrUI::Colors::BackgroundPrimary.z, DrUI::Colors::BackgroundPrimary.w);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+            GLFWwindow* backup_context = glfwGetCurrentContext();
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+            glfwMakeContextCurrent(backup_context);
+        }
+
         glfwSwapBuffers(window);
     }
 
