@@ -11,7 +11,7 @@
 3. **`toolchain/vcpkg/ports/imgui/vcpkg.json`**: увеличить **`port-version`** на 1 (инвалидация кэша vcpkg при том же upstream version строки пакета).
 4. **Патчи** в каталоге порта для этих исходников **не используются** (список `PATCHES` в `portfile.cmake` не добавлять).
 5. Пересобрать зависимости: из корня проекта с манифестом — например  
-   `vcpkg install --triplet x64-windows --x-manifest-root=. --x-install-root=_build/vcpkg_installed`  
+   `vcpkg install --triplet x64-windows-static --x-manifest-root=. --x-install-root=_build/vcpkg_installed --overlay-ports=toolchain/vcpkg-overlay/ports` (как в `CMakePresets.json`)  
    или `cmake --build _build` (если toolchain подхватывает manifest install на configure).
 
 Итог: один источник правды — **коммит в форке**; порт только **привязывает** ревизию и версию порта.

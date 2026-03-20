@@ -11,3 +11,5 @@ alwaysApply: true
 - Run: `_build\bin\Release\ui_sandbox.exe` or `_build\bin\Debug\ui_sandbox.exe`
 
 If you suggest or run CMake/ctest commands, use `_build` only.
+
+**vcpkg по умолчанию:** triplet **`x64-windows-static`** + **`VCPKG_OVERLAY_PORTS`** = **`toolchain/vcpkg-overlay/ports`** (именно каталог `ports`, не родитель). Overlay `shader-slang`: исходники **с GitHub** (SHA в `ports/shader-slang/portfile.cmake`). См. `CMakePresets.json`. Смена triplet/overlay — пересоздай `_build`.

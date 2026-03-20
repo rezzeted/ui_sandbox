@@ -1,0 +1,19 @@
+{
+  "name": "shader-slang",
+  "version-string": "80c30664",
+  "port-version": 6,
+  "description": "Slang built from github.com/shader-slang/slang at pinned commit (ui_sandbox overlay). Use with triplet x64-windows-static and overlay path …/toolchain/vcpkg-overlay/ports.",
+  "homepage": "https://github.com/shader-slang/slang",
+  "license": null,
+  "supports": "(arm64 | x64) & (linux | osx | windows) & !uwp",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}

@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.21)
 
+# Match vcpkg triplet x64-windows-static (/MT); linking /MT Slang into /MD exe breaks LNK2038.
+if(POLICY CMP0091)
+    cmake_policy(SET CMP0091 NEW)
+endif()
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 project(UiSandbox VERSION 0.1.0 LANGUAGES CXX)
 
 option(UI_SANDBOX_BUILD_APPS "Build applications." ON)

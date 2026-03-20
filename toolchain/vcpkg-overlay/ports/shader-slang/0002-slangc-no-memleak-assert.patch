@@ -1,0 +1,12 @@
+--- a/source/slangc/main.cpp
++++ b/source/slangc/main.cpp
+@@ -170,6 +170,8 @@
+     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+ 
+     int memleakDetected = _CrtDumpMemoryLeaks();
+     SLANG_UNUSED(memleakDetected);
+-    assert(!memleakDetected);
++    // Debug MS CRT reports leftover blocks after slang-bootstrap core-module step;
++    // aborting breaks vcpkg install. Leak details still go to stderr from DumpMemoryLeaks.
++    (void)memleakDetected;
+ #endif

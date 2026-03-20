@@ -7,12 +7,14 @@
       "displayName": "Default (Ninja)",
       "binaryDir": "${sourceDir}/_build",
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/toolchain/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/toolchain/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static",
+        "VCPKG_OVERLAY_PORTS": "${sourceDir}/toolchain/vcpkg-overlay/ports"
       }
     },
     {
       "name": "vs2026",
-      "displayName": "Visual Studio 18 2026 x64",
+      "displayName": "Visual Studio 18 2026 x64 (x64-windows-static + Slang overlay)",
       "inherits": "default",
       "generator": "Visual Studio 18 2026",
       "architecture": { "value": "x64", "strategy": "set" }
